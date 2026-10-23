@@ -595,7 +595,21 @@ $checksumBefore = @($text -split "`n" | Where-Object { $_ -match '^checksum=' })
 $checksumAfter = @($out | Where-Object { $_ -match '^checksum=' })[0]
 if ($checksumBefore -ne $checksumAfter) { throw 'Internal error: checksum line was modified.' }
 
-[IO.File]::WriteAllText($s.output, ($out -join "`n"), [Text.Encoding]::ASCII)
+$outText = $out -join "`n"
+# Writing can fail with a sharing violation when VideoPad still has this project
+# open (or when two writers race), so retry briefly and then say what to do.
+for ($attempt = 1; $attempt -le 5; $attempt++) {
+    try {
+        [IO.File]::WriteAllText($s.output, $outText, [Text.Encoding]::ASCII)
+        break
+    }
+    catch [System.IO.IOException] {
+        if ($attempt -eq 5) {
+            throw "Could not write '$($s.output)': $($_.Exception.Message) Close that project in VideoPad (or open another one) and retry."
+        }
+        Start-Sleep -Milliseconds 400
+    }
+}
 
 $seqName = ''
 if ($seqNameEnc) {

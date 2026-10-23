@@ -37,6 +37,9 @@ Three specs to copy from:
 | [`examples/cut2-reuse.json`](examples/cut2-reuse.json) | one source used 3×, a dropped clip, a muted segment |
 | [`examples/cut3-addmedia.json`](examples/cut3-addmedia.json) | added media between two episode segments |
 
+`.\tools\Test-Examples.ps1` rebuilds all three and fails unless each one reproduces
+its committed `.vpj` byte-for-byte — run it after touching the writer.
+
 `cut3` needs its scratch clip first (it is gitignored):
 
 ```powershell

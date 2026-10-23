@@ -65,22 +65,28 @@ conclusive past the opening (§8).
 | file | role |
 |---|---|
 | `examples/cut1.json` | the edit spec (template, output, sequence name, segments) |
+| `examples/cut2-reuse.json`, `examples/cut3-addmedia.json` | v2 specs: source reuse / dropped clip / mute, and added media |
 | `tools/New-Project.ps1` | **spec → .vpj** by editing the template; preserves unknown fields byte-for-byte |
-| `tools/Open-Project.ps1` | launches VideoPad on a `.vpj`, auto-answers "Damaged File" via `WM_COMMAND/IDOK`; ~4.4 s |
+| `tools/Test-Examples.ps1` | rebuilds every spec and asserts the output is **byte-identical** — the gate before a commit (no VideoPad needed) |
+| `tools/Open-Project.ps1` | launches VideoPad on a `.vpj`, clears stale modals, auto-answers "Damaged File" via `WM_COMMAND/IDOK`; ~4.5 s |
 | `tools/Watch-Autosave.ps1` | load → wait for autosave refresh → report what the parser actually absorbed |
 | `tools/Export-Project.ps1` | **.vpj → .mp4**: ribbon clicks, `Create`, wait, adopt file, verify duration |
-| `tools/PadUi.ps1` | UI primitives: DPI-aware capture/click, top-level window enumeration, control search, `BM_CLICK` |
+| `tools/PadUi.ps1` | UI primitives: DPI-aware capture/click, top-level window enumeration, control search, `BM_CLICK`, window resizing |
 | `tools/NativeInput.cs` | P/Invoke layer (`mouse_event`, `keybd_event`, `SendMessage`, `EnumWindows`, …) |
 | `tools/Probe-ExportDialog.ps1` | diagnostic: dumps the control map of whatever dialog is under a point |
 | `tools/Get-WindowCapture.ps1`, `tools/Send-PadClick.ps1` | earlier standalone capture / click tools, still useful for calibration |
-| `docs/vpj-format-findings.md` | format reference: sections, checksum, timeline semantics, export |
-| `out/cut1.vpj` | last generated project ("Agent Cut", 210 000 ms) |
-| `out/agent-cut-v2.mp4`, `out/agent-cut-first-export.mp4` | the two verified exports (identical) |
+| `docs/vpj-format-findings.md` | format reference: sections, handles, checksum, timeline semantics, export |
+| `out/cut1.vpj`, `out/cut2-reuse.vpj`, `out/cut3-addmedia.vpj` | the generated projects (210 000 / 150 000 / 36 000 ms) |
+| `out/agent-cut-v2.mp4`, `out/agent-cut-first-export.mp4` | the two verified 210 s exports (identical) |
+| `out/oracle/` | v2 evidence: autosave round-trips, watcher logs, export log, frame-MAE script and results |
 
 End-to-end invocation, in order:
 
 ```powershell
 cd C:\Users\user\Downloads\videopad
+
+# 0. regression gate (~2 s, no VideoPad): every spec must reproduce its .vpj exactly
+.\tools\Test-Examples.ps1
 
 # 1. spec -> project
 .\tools\New-Project.ps1 -Spec .\examples\cut1.json
