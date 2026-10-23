@@ -58,6 +58,11 @@ handles are referenced by `horiginalclip=`, and `effectchains` reference `hclip=
 
 1. Close any running instance with `WM_CLOSE` — VideoPad is single-instance and
    **silently drops the file argument** when another copy is already running.
+   A modal open at that moment swallows the close (and each swallowed close spawns
+   *another* prompt), so answer stale dialogs first: `Discard` on "The current
+   project has been changed…", `No` on "New media has been connected…". Both are
+   real `#32770` windows with real `Button`s that **UI Automation cannot see**, so
+   they are found via `Get-PadWindows` + `EnumChildWindows`.
 2. `videopad.exe "<absolute path>.vpj"` (only a *fresh* process honours the path).
 3. Poll UI Automation for a descendant named `Damaged File`; post
    `WM_COMMAND (0x0111)` with `IDOK (1)` to that dialog's HWND.
@@ -120,7 +125,8 @@ by `hlinked`; they must be trimmed identically or A/V drifts.
 re-emits `trackclips` and `effectchains` in its own internal order (the sample
 came back as 392, 390, 391, 389 instead of 390, 392, 389, 391) while every
 `offset`/`in`/`out` round-tripped unchanged. A writer may therefore keep the
-template's order.
+template's order — and v2's appended records (allocated handles 3382…3387) came
+back from the app unchanged too, so appending is safe.
 
 ## The autosave oracle — verify an edit without exporting
 
@@ -153,7 +159,7 @@ app's writer and this writer agree on the format.
 file prompt) → wait for the autosave refresh → capture it next to the log and
 report the parsed sequence name, checksum and `hindex`.
 
-## Writer: `tools/New-Project.ps1`
+## Writer: `tools/New-Project.ps1` (v2)
 
 Takes a JSON spec and produces a `.vpj` by editing a known-good template, so
 every field not explicitly modelled survives byte-for-byte. The template's
@@ -162,32 +168,58 @@ prompt in ~4 s.
 
 ```json
 {
-  "template": "C:\\Users\\user\\Documents\\probe.vpj",
-  "output":   "C:\\Users\\user\\Downloads\\videopad\\out\\cut1.vpj",
-  "sequenceName": "Agent Cut",
+  "template": "probe.vpj",
+  "output":   "../out/cut3-addmedia.vpj",
+  "sequenceName": "Add Media Test",
+  "media":    [ { "id": "bars", "path": "../out/testmedia/bars.mp4" } ],
   "segments": [
-    { "source": 1, "start": 0,     "end": 90000  },
-    { "source": 0, "start": 60000, "end": 180000 }
+    { "source": 1,      "start": 0,      "end": 15000 },
+    { "source": "bars", "start": 0,      "end": 6000  },
+    { "source": 1,      "start": 900000, "end": 915000, "mute": true }
   ]
 }
 ```
 
-`source` indexes the template's distinct sources in timeline order; `start`/`end`
-are milliseconds inside that source. Segment order becomes timeline order, so the
-list doubles as a reorder. The script:
+`source` is a template source index (timeline order) or a `media` id; `start`/`end`
+are milliseconds; paths resolve against the spec's folder. Segment order becomes
+timeline order, so the list doubles as a reorder, a drop and a reuse.
 
-- trims `in`/`out` on the video **and** linked audio trackclip,
-- rewrites `offset` cumulatively from 0,
-- sets sequence `duration`/`out` to the exact sum,
-- optionally renames the sequence (URL-encoded),
-- refuses trims past the source's length, and asserts that no line was added or
-  removed and that the checksum line is untouched.
+**Handles.** `hindex` is the project's next-free counter and sits far above the
+handles in use (3382 vs 392 in the sample). v2 allocates upward from
+`max(hindex, max handle + 1)` and writes the bumped value back, so a project it
+produced and the app then re-saved stays collision-free.
 
-**v1 scope:** rename, trim each source once, reorder. Not yet supported:
-using a source twice, adding/removing clips, adding new media files. Those need
-handles allocated from `hindex` (bumping it past the allocations) plus cloned
-`effectchains` records, since `effectchains` has exactly one line per
-clip/sequence/media handle.
+**Clips (v2).** Each segment needs a `type=7` video/audio pair. A pair whose
+`horiginalclip` matches the segment's source is reused when still free — that is
+what keeps a one-segment-per-source spec byte-identical to the v1 output.
+Otherwise the pair is cloned from the template's own prototype line, with `h`,
+`horiginalclip`, `hlinked`, `name`, `offset`, `in`, `out` replaced. Pairs whose
+clips are no longer wanted are **removed**, together with their `effectchains`
+records: a `trackclips` record with no `effectchains` record (or the reverse)
+would be a dangling reference, and leaving the clip in place would put a ghost
+clip on the timeline.
+
+**Media (v2).** Adding a file means adding the pair VideoPad creates when a clip
+is imported — an audio record and a video record pointing at the same `path`,
+cross-linked by `hlinked`, with `hadlinkedvideo` / `hadlinkedaudio` set:
+
+```
+h=3382&type=5&name=bars.mp4&path=...&note=&creationtime=1792795562&hfolder=7&hlinked=3383&in=0&out=6000&hadlinkedvideo=1&thumbpos=4500&soundstreamindex=-1&isbackgroundsound=0
+h=3383&type=3&sphen=0&sphho=0&sphve=0&name=bars.mp4&path=...&note=&creationtime=1792795562&stereoformat=0&stereostretch=0&hfolder=6&hlinked=3382&in=0&out=6000&thumb=4500&hadlinkedaudio=1&thumbpos=4500
+```
+
+`out` is the media duration in ms (`ffprobe`, or an explicit `duration`),
+`hfolder` 7 = Audio Files, 6 = Video Files, `creationtime` is Unix seconds and
+`thumb`/`thumbpos` are a placeholder frame time. VideoPad re-saved these two
+records **byte-identically**, including field order, so cloning a prototype line
+is the right shape. Note `clips=` counts the sequence record *plus* every media
+record — adding one file therefore raises `clips=` by 2 and `effectchains=` by 2,
+and adding one clip raises `trackclips=` by 2 and `effectchains=` by 2.
+
+**Scope after v2:** rename, trim, reorder, drop, reuse (n×), add media, mute.
+Not modelled: split, effects/transitions/titles, speed, audio mixing, extra
+tracks, audio-less media.
+
 
 ## Export — driving it, and proving the output
 
@@ -272,8 +304,15 @@ and `tools/Probe-ExportDialog.ps1` (control-map dump).
 
 ## Still open
 
-- **Writer v2**: reuse a source twice, add/remove clips, add new media — needs
-  handle allocation above `hindex` plus cloned `effectchains` records.
+- **Splitting a clip** into two adjacent pieces: expressible (two clips sharing a
+  source with touching offsets) but unverified — a split that does not land on a
+  keyframe may behave differently from the app's own Split.
+- **Effects, transitions, titles, speed**: `effectchains` is only ever cloned as
+  the empty default (`size=0&fadepoints=0&speedchangef=1.000000&…&mute=0`), so a
+  non-default chain, `speedchangef≠1` duration semantics, or a transitions record
+  would have to be authored from scratch.
+- **Audio-less media**: added media is written as a `type=5`/`type=3` pair and
+  rejected when `ffprobe` finds no audio stream.
 - **Round-trip through a real save** to normalise the checksum, instead of relying
   on the auto-dismissed "Damaged File" prompt.
 - **Concurrency**: the autosave file is global and the app is single-instance, so

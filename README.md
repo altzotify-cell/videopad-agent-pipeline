@@ -8,17 +8,20 @@ supplies the click.
 examples/cut1.json  →  tools/New-Project.ps1  →  out/cut1.vpj  →  VideoPad  →  out/*.mp4
 ```
 
-**Can an agent edit in VideoPad?** Yes for cut-and-arrange of existing media
-(proven end to end, verified to within 6 ms of expected duration, byte-identical
-across runs). Not yet for structural edits — adding media, reusing a source,
-effects — which need handle allocation in the writer.
+**Can an agent edit in VideoPad?** Yes for cutting *and* for structural edits that
+add or remove timeline clips: the writer (v2) reuses a source any number of times,
+drops clips, adds new media files and mutes segments. Cut-only work was verified
+end to end to within 6 ms of expected duration and byte-identical across runs;
+the v2 features were verified against VideoPad's own autosave re-serialisation and
+a real export (`out/oracle/`). Not yet: split, effects/transitions/titles, speed,
+audio mixing.
 
 | start here | what it is |
 |---|---|
 | **[docs/HANDOFF.md](docs/HANDOFF.md)** | **read this first** — verdict, environment, commands, UI-automation rules, open work, new-session bootstrap prompt |
-| [docs/vpj-format-findings.md](docs/vpj-format-findings.md) | `.vpj` format reference: sections, checksum, timeline semantics, export details |
+| [docs/vpj-format-findings.md](docs/vpj-format-findings.md) | `.vpj` format reference: sections, handles, checksum, timeline semantics, export details |
 
-Quickstart (VideoPad must not already be running):
+Quickstart (VideoPad must not already be running — `Open-Project.ps1` closes it):
 
 ```powershell
 .\tools\New-Project.ps1 -Spec .\examples\cut1.json
@@ -26,9 +29,27 @@ Quickstart (VideoPad must not already be running):
     -OutputPath .\out\agent-cut.mp4 -ExpectedDurationMs 210000
 ```
 
+Three specs to copy from:
+
+| spec | shows |
+|---|---|
+| [`examples/cut1.json`](examples/cut1.json) | trim + reorder, one segment per source (byte-identical to the v1 writer) |
+| [`examples/cut2-reuse.json`](examples/cut2-reuse.json) | one source used 3×, a dropped clip, a muted segment |
+| [`examples/cut3-addmedia.json`](examples/cut3-addmedia.json) | added media between two episode segments |
+
+`cut3` needs its scratch clip first (it is gitignored):
+
+```powershell
+ffmpeg -y -f lavfi -i "testsrc2=size=640x360:rate=25:duration=6" `
+       -f lavfi -i "sine=frequency=440:duration=6" `
+       -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest out\testmedia\bars.mp4
+```
+
 Environment: VideoPad Professional 8.91 (32-bit), display at 150% scaling,
 `ffmpeg`/`ffprobe` on PATH. Coordinates in `tools/Export-Project.ps1` are
-calibrated for a 1536×817 main window and scaled by width.
+calibrated for a 1536×817 main window, and the window is **resized to that size**
+before clicking — the ribbon scales with DPI, not with window width, so scaling
+coordinates alone misses it.
 
 ## Not in this repo
 

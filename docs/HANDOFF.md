@@ -24,10 +24,11 @@ renderer, and the agent only supplies a project file plus a click.
 |---|---|---|
 | Can a tool write a `.vpj` VideoPad will open and honour? | **Yes, proven** | `.vpj` is plain-text LF-terminated sectioned querystrings; a stale checksum only raises a "Damaged File" prompt that is auto-answerable |
 | Can VideoPad be made to *export* that project unattended? | **Yes, proven** | ribbon coordinate clicks + `BM_CLICK` on the export dialog's `Create` button; output verified frame-by-frame |
-| Can an agent perform *arbitrary* edits? | **Not yet** | v1 writer renames / trims / reorders (**each source once**). Adding media, reusing a source twice, splitting a clip, effects — all need handle allocation. See §9 |
+| Can an agent perform *arbitrary* edits? | **Partly — v2** | the writer renames, trims, reorders, **reuses a source any number of times**, adds and removes clips, **adds new media files** and mutes segments. Not yet: splitting a clip, effects, transitions, titles, audio mixing. See §9 |
 
-So: **the loop closes today for a cut**, i.e. select-and-arrange existing
-material. It does not yet cover structural edits.
+So: **the loop closes today for a cut** *and* for structural edits that only add
+or remove timeline clips and bin media. It does not yet cover splitting, effects
+or titles.
 
 There is **no scripting API**: VideoPad is a Delphi app with no MSAA/UIA
 provider (all ~65 UIA descendants are unnamed `Pane`s). Everything below is
@@ -139,30 +140,53 @@ Semantics that matter when writing:
 
 ```json
 {
-  "template": "C:\\Users\\user\\Documents\\probe.vpj",
-  "output":   "C:\\Users\\user\\Downloads\\videopad\\out\\cut1.vpj",
-  "sequenceName": "Agent Cut",
+  "template": "probe.vpj",
+  "output":   "../out/cut3-addmedia.vpj",
+  "sequenceName": "Add Media Test",
+  "media":    [ { "id": "bars", "path": "../out/testmedia/bars.mp4" } ],
   "segments": [
-    { "source": 1, "start": 0,     "end": 90000  },
-    { "source": 0, "start": 60000, "end": 180000 }
+    { "source": 1,      "start": 0,      "end": 15000 },
+    { "source": "bars", "start": 0,      "end": 6000  },
+    { "source": 1,      "start": 900000, "end": 915000, "mute": true }
   ]
 }
 ```
 
-- `source` indexes the template's distinct sources **in timeline order**;
-  `start`/`end` are ms inside that source.
-- Segment order *is* timeline order, so the list doubles as a reorder.
+- `source` is either an integer index into the template's distinct sources **in
+  timeline order**, or the `id` of an entry in `media`. `start`/`end` are ms
+  inside that source; `mute` is optional.
+- Segment order *is* timeline order, so the list doubles as a reorder, a drop
+  (omit a source) and a reuse (repeat one).
 - `sequenceName` is optional and URL-encoded into the sequence record.
+- **All paths resolve against the spec's own folder** unless absolute, so a spec
+  is portable between checkouts.
+- `media` entries are measured with `ffprobe` — supply `"duration"` (ms) to skip
+  that. A file without an audio stream is rejected: added media is written as an
+  A/V pair and the audio-less variant has not been verified.
 
-What `New-Project.ps1` does: trims `in`/`out` on the video **and** linked audio
-trackclip, rewrites `offset` cumulatively from 0, sets sequence `duration`/`out`
-to the exact sum, and refuses trims past source length. It then **asserts** that
-no line was added or removed, that the line count is unchanged, and that the
-checksum line is untouched — so a format drift fails loudly instead of producing
-a subtly broken project.
+What `New-Project.ps1` does:
 
-It works by editing a known-good template rather than synthesizing a file, so
-every field nobody understands survives byte-for-byte.
+- trims `in`/`out` on the video **and** linked audio trackclip, rewrites `offset`
+  cumulatively from 0, sets sequence `duration`/`out` to the exact sum;
+- **reuses** a template trackclip pair when the segment's source still has an
+  unused one, so a spec that never repeats a source rewrites the file in place
+  (byte-identical to the v1 output — `examples/cut1.json` still reproduces
+  `out/cut1.vpj` exactly);
+- otherwise **allocates** a fresh `type=7` video/audio handle pair from `hindex`,
+  bumps `hindex`, and clones the pair from the template's own prototype line;
+- **removes** the trackclip *and* `effectchains` records of clips no longer used,
+  so nothing is orphaned on the timeline (bin media records are kept, matching
+  what the app does when a clip is deleted);
+- **adds** a `type=5`/`type=3` media pair plus one `effectchains` line per handle
+  for every new file; segments of the same added media share that one record;
+- refuses trims past source length, and **asserts**: every handle unique, exactly
+  one `effectchains` record per clip handle, section counts consistent with their
+  bodies, and the checksum line untouched — so a format drift fails loudly
+  instead of producing a subtly broken project.
+
+It works by editing a known-good template and reassembling by section, so every
+field nobody understands survives byte-for-byte (including the glued
+`Type=2SubtitlesExport=1` quirk and the stray CR).
 
 ## 7. UI automation: the rules that took the longest to learn
 
@@ -192,16 +216,34 @@ Effects gallery. If the ribbon looks "possessed", this is why.
 
 **R5 — Coordinate frame.** Ribbon coords were calibrated at **1536×817** physical:
 Home `(175,66)`, Export Video `(543,105)`, Video File `(515,176)`.
-`Export-Project.ps1` scales them by `window.Width / 1536`. Recalibrate if the
-window is a different shape; capture a screenshot with `Save-PadCapture` and read
-coords off the **physical** image.
+`Export-Project.ps1` now **resizes the window to 1536×817** (`Set-PadWindowSize`)
+before clicking. Scaling the coordinates by `window.Width / 1536` alone is not
+enough: the ribbon scales with **DPI, not with window width**, so on a maximised
+1942×1030 window every width-scaled click lands *below* the ribbon and the Export
+dropdown never opens (seen live — the driver waited out its timeout for a dialog
+that never appeared). Recalibrate if the DPI changes; capture a screenshot with
+`Save-PadCapture` and read coords off the **physical** image.
 
 **R6 — Single instance, and never force-kill.** VideoPad silently **drops the file
 argument** if another instance is already running — close first via `WM_CLOSE`.
 Force-killing arms crash recovery ("Abnormal Termination"), which then suppresses
 the CLI argument on the next start and poisons the next several runs.
 
-**R7 — `WM_CLOSE` is swallowed while a modal is open.** Dismiss the modal first.
+**R7 — `WM_CLOSE` is swallowed while a modal is open.** Dismiss the modal first —
+and note that each swallowed `WM_CLOSE` spawns *another* prompt, so a naive retry
+loop leaves a stack of identical dialogs. `Open-Project.ps1` answers them
+(`Clear-PadModals`) before closing. The ones seen in practice:
+
+| modal | buttons | answer |
+|---|---|---|
+| "The current project has been changed since the last time you saved…" | `Save` `Discard` `Cancel` | **Discard** (one per swallowed close) |
+| "New media has been connected to your computer." | `Add Files` `No` | **No** (raised when files land in a watched folder — e.g. our own export) |
+| "Damaged File … try to load it anyway?" | `Try Load` `Cancel` | **Try Load** via `WM_COMMAND/IDOK`, never `Cancel` |
+
+These are **real `#32770` windows with real `Button` children, but UI Automation
+does not expose them at all** — not the window, not the buttons. `Clear-PadModals`
+therefore enumerates with Win32 (`Get-PadWindows` + `EnumChildWindows`) and never
+answers anything whose text mentions "damaged".
 
 **R8 — The encode happens inside VideoPad.** The calling script is not the renderer,
 so an interrupted script does not lose the render: `-WaitOnly` adopts the newest
@@ -266,22 +308,53 @@ $A=[IO.File]::ReadAllBytes("$PWD\out\a.gray"); $B=[IO.File]::ReadAllBytes("$PWD\
 $s=0; for($i=0;$i -lt $A.Length;$i++){ $s += [Math]::Abs($A[$i]-$B[$i]) }; 'MAE = ' + [Math]::Round($s/$A.Length,2)
 ```
 
+### v2 evidence (structure *and* new media)
+
+Both v2 features were checked against both oracles, and the artefacts are in
+`out/oracle/`:
+
+| project | what it proves | result |
+|---|---|---|
+| `out/cut2-reuse.vpj` (5 clips, one source used 3×, 3 allocated pairs, one muted) | source reuse + drop + mute survive the parser | autosave returned all 10 trackclips **byte-identical** (handle, `horiginalclip`, `htrack`, `offset`, `in`, `out`), `clips=5 / trackclips=10 / effectchains=15`, `mute=1` kept. Only deltas: checksum, `hindex`, folder `open=`, recomputed `thumb` |
+| `out/cut3-addmedia.vpj` (Ep3 0–15 s, `bars.mp4` 0–6 s, Ep3 900–915 s) | added media + reuse + trim, end to end | autosave: `clips=7 / trackclips=6 / effectchains=13`, all 6 clips identical, and the two synthesised media records identical **down to field order and `creationtime`**. Export: **36.011 s** vs 36.000 expected (Δ 11 ms) |
+
+Frame MAE for the export (`out/oracle/cut3-verify.ps1` → `.txt`):
+
+| comparison | MAE | reading |
+|---|---|---|
+| `export@18s` vs `bars@3s` | **0.59** | the added media really is on screen, at the right source time |
+| `export@18s` vs `Ep3@5s` | 97.41 | …and it is not the episode |
+| `export@5s` vs `Ep3@5s` | **0.20** | segment 1 correct (`Ep2@5s` = 1.04: shared opening) |
+| `export@30s` vs `Ep3@909s` | **0.42** | segment 3's `in=900000` is exact |
+| `export@30s` vs `Ep3@5s` | 121.23 | …and unrelated to the episode's opening |
+
+Regenerate the scratch clip the add-media example points at:
+
+```powershell
+ffmpeg -y -f lavfi -i "testsrc2=size=640x360:rate=25:duration=6" `
+       -f lavfi -i "sine=frequency=440:duration=6" `
+       -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest out\testmedia\bars.mp4
+```
+
 ## 9. What is NOT supported yet (and the shape of the fix)
 
-**Writer v2** — all of these need *new records*, not edited ones:
+**Writer v3 — still needs records this writer does not model:**
 
-- using one source **twice** in the timeline (two independent trims),
-- adding or removing clips (a segment list that is not a permutation of the
-  template's sources),
-- splitting one clip into two adjacent pieces,
-- adding media files not already in the template,
-- effects, transitions, titles, audio mixing.
+- splitting one clip into two adjacent pieces (two clips sharing a source and
+  touching offsets — v2 can express it, but nothing has verified that a split
+  point inside a GOP behaves like a real split),
+- effects, transitions, titles, audio mixing, speed changes (`speedchangef`) —
+  `effectchains` is cloned as the empty default, and any non-default chain would
+  have to be authored,
+- adding media **without an audio stream** — added media is written as a
+  `type=5`/`type=3` pair, so a silent video is currently rejected rather than
+  guessed at,
+- more than one video/audio track or a second sequence.
 
-Mechanically: allocate handles above `hindex` and **bump `hindex`**; clone the
-`type=7` trackclip pair *and* its `effectchains` line; keep `hlinked` consistent;
-recompute `offset`/`duration`. The current writer's assertions (no line added,
-count unchanged) would be replaced by "every pre-existing line untouched, N new
-lines appended, checksum left stale".
+Mechanically, everything else is now done: handles above `hindex` with `hindex`
+bumped, cloned `type=7` pairs, cloned `effectchains` per handle, consistent
+`hlinked`, recomputed `offset`/`duration`, and removal of the records belonging to
+dropped clips.
 
 **Other open items:**
 
@@ -300,14 +373,17 @@ lines appended, checksum left stale".
 
 ## 10. Current state (as of this handoff)
 
-- `out/cut1.vpj` — generated, opens clean, 210 000 ms, sequence "Agent Cut".
-- `out/agent-cut-v2.mp4` + `out/agent-cut-first-export.mp4` — identical, verified.
+- `out/cut1.vpj` — v1 regression: 210 000 ms, sequence "Agent Cut", still
+  byte-identical when regenerated by the v2 writer.
+- `out/cut2-reuse.vpj` — v2 reuse/drop/mute: 150 000 ms, 5 clips from 2 sources,
+  round-tripped through the app unchanged.
+- `out/cut3-addmedia.vpj` — v2 add-media: 36 000 ms, exported to
+  `out/cut3-addmedia.mp4` (16.5 MB, gitignored) and verified by frame MAE.
 - All 8 `tools/*.ps1` parse clean (AST check).
-- VideoPad is **left running** with the project open and an unsaved-changes marker,
-  so closing it manually will prompt. Nothing is lost either way — the `.vpj` on
-  disk is the source of truth.
-- The user's `Videos` folder was cleaned of test exports (VideoPad writes there by
-  default when the project's `Computer_FilePath` points there).
+- VideoPad is **left running**; `Open-Project.ps1` now clears stale modals first,
+  so the next run does not get stuck on a "Save changes?" prompt.
+- The user's `Videos` folder is empty again (VideoPad writes there by default when
+  the project's `Computer_FilePath` points there).
 
 ## 11. Bootstrap prompt for a new session
 
@@ -320,14 +396,18 @@ Paste this to continue the work with full context:
 > VideoPad `.vpj` and drives VideoPad's UI (DPI-aware synthetic clicks + `BM_CLICK`
 > on the export dialog) to render an `.mp4` unattended. Proven: spec → `.vpj` →
 > export, verified to within 5.8 ms of expected duration, by frame MAE against the
-> sources, and byte-identical across runs. Not yet done: writer v2 (reuse a source,
-> add/remove clips, add media — needs handle allocation above `hindex` plus cloned
-> `effectchains` records), preset selection, and setting the output path in the
-> dialog. VideoPad 8.91 32-bit, display at 150% scaling, ffmpeg on PATH. Rules that
-> matter: call `SetProcessDPIAware()` before touching coordinates; enumerate
-> process top-level windows (dialogs are owned popups, not children); never
-> force-kill VideoPad; keep the stale checksum and let `Open-Project.ps1` answer
-> the "Damaged File" prompt; use `-WaitOnly` to recover an interrupted export.
+> sources, and byte-identical across runs. The writer is at **v2**: it can also
+> reuse a source any number of times, add and remove timeline clips, add new media
+> files (ffprobe-measured) and mute segments — proven against VideoPad's own
+> autosave re-serialisation and a real export (`out/oracle/`). Not yet done: split,
+> effects/transitions/titles, silent (audio-less) media, presets, and setting the
+> output path in the dialog. VideoPad 8.91 32-bit, display at 150% scaling, ffmpeg
+> on PATH. Rules that matter: call `SetProcessDPIAware()` before touching
+> coordinates; enumerate process top-level windows (dialogs are owned popups, not
+> children); pin the editor window to 1536×817 before clicking the ribbon; never
+> force-kill VideoPad; answer stale modals *before* `WM_CLOSE` (UIA cannot see
+> them); keep the stale checksum and let `Open-Project.ps1` answer the "Damaged
+> File" prompt; use `-WaitOnly` to recover an interrupted export.
 > [State the specific task here.]
 
 
