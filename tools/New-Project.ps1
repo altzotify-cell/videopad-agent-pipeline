@@ -17,6 +17,19 @@
       * add new media files, measured with ffprobe
       * mute individual segments
 
+    v3 adds the two things an agent needs in order to re-shape footage rather
+    than just re-cut it:
+
+      * splits. A segment may carry "split": [t1, t2, ...]; those offsets become
+        consecutive segments over the same source. This is the shape VideoPad
+        itself produces when a clip is split, so no extra fields are involved.
+      * video effects. Per-segment "effects" (plus an optional spec-wide
+        "defaultEffects") are written into the slot list of the clip's
+        effectchains record: Mirror, Flip, Rotate, Crop/Scale, Crop, Brightness/
+        Contrast/Gamma, Saturation, Colour Temperature, Hue, Fade, Pixelate,
+        Noise, Old Film, Blur and Border. Definitions, parameter schemas and the
+        preset blobs VideoPad ships live in tools/effects.json.
+
     New objects need handles. v2 allocates them from the project's hindex counter
     (bumped past the allocations) and clones the records VideoPad requires for
     each one: a type=7 video/audio trackclip pair plus one effectchains line per
@@ -53,9 +66,49 @@
     order, or the "id" of an entry in "media". "start"/"end" are milliseconds
     within that source; "mute" is optional and defaults to false.
 
+    Optional v3 keys, per segment unless stated otherwise:
+
+        "split":   [t1, t2, ...]  extra cut points in the same millisecond space
+                   as start/end. start=0, end=6000, split=[2000,4000] becomes
+                   three consecutive clips covering 0-2000, 2000-4000 and
+                   4000-6000, each inheriting the segment's mute/effects.
+        "effects": [ ... ]        effect chain for this segment's video clip. An
+                   empty array means "no effects" and overrides defaultEffects.
+
+    "defaultEffects" at the top level applies a chain to every segment that does
+    not define its own "effects". An effect entry is one of:
+
+        { "name": "mirror", "params": { "mirrordirection": "vertical" } }
+        { "name": "colorAdjust", "preset": "Bright" }
+        { "name": "rotate", "params": { "z": 90 } }
+        { "id": 36, "data": "enabled=value%3D1%26userdata%3D0%26keys%3D0&mirrordirection=1" }
+
+    "name" is a key from tools/effects.json; "params" overrides single parameters
+    of that effect's default blob (booleans take true/false, enums the label or
+    the number); "preset" selects one of the presets VideoPad ships for the
+    effect. The { "id", "data" } form writes a raw registry blob and is the escape
+    hatch for an effect that has not been catalogued yet. Slots apply in array
+    order, exactly as the effect list in the app reads top to bottom.
+
+    Example with splits and effects:
+
+        {
+          "template": "..\\examples\\probe.vpj",
+          "output":   "..\\out\\cut4-evade.vpj",
+          "media": [ { "id": "bars", "path": "..\\out\\testmedia\\bars.mp4" } ],
+          "defaultEffects": [ { "name": "mirror", "params": { "mirrordirection": "vertical" } } ],
+          "segments": [
+            { "source": "bars", "start": 0, "end": 6000, "split": [2000, 4000],
+              "effects": [ { "name": "mirror" }, { "name": "colorAdjust", "preset": "Bright" } ] },
+            { "source": "bars", "start": 0, "end": 3000, "effects": [] }
+          ]
+        }
+
 .OUTPUTS
     PSCustomObject: Output, DurationMs, SequenceName, SourceCount, SegmentCount,
-    AllocatedHandles, MediaAdded, Clips
+    DroppedClips, AllocatedHandles, MediaAdded, EffectCount, Clips. SegmentCount is
+    counted after splits are expanded; EffectCount is the number of effect slots
+    written across all clips, and each entry of Clips records the chain it got.
 
 .EXAMPLE
     .\New-Project.ps1 -Spec .\examples\cut1.json
@@ -124,6 +177,184 @@ function Get-MediaProbe {
     if ($sec -le 0) { throw "ffprobe reports no duration for $Path" }
     $hasAudio = @($p.streams | Where-Object { $_.codec_type -eq 'audio' }).Count -gt 0
     [pscustomobject]@{ OutMs = [int64][math]::Round($sec * 1000); HasAudio = $hasAudio }
+}
+
+# --- video effect chains -----------------------------------------------------
+# Effect slots in an effectchains record are a flat ordered list:
+#
+#     size=1&type0=36&preset0=Default%20Preset&data0=<blob>&fadepoints=0&...&hclip=392
+#
+# typeN is the numeric effect id, presetN the preset label the app shows, and
+# dataN the effect's own querystring escaped once. VideoPad parses dataN on load
+# (proved in out/probe-effect.vpj: a hand-written Mirror chain survived a load
+# and autosave untouched), so all this writer has to produce is the same three
+# fields per slot and leave the rest of the record alone.
+#
+# tools/effects.json holds, per effect, the blob VideoPad ships plus a parameter
+# schema. A spec can override single parameters, which rewrites just those keys
+# of that blob, so an effect is always written with the complete key set the app
+# expects even when only one slider was touched.
+
+$script:EffectRegistry = $null
+
+function Get-EffectRegistry {
+    if ($null -ne $script:EffectRegistry) { return $script:EffectRegistry }
+    $path = Join-Path $PSScriptRoot 'effects.json'
+    if (-not (Test-Path -LiteralPath $path)) { throw "Effect registry not found: $path" }
+    $script:EffectRegistry = (Get-Content -LiteralPath $path -Raw | ConvertFrom-Json).effects
+    return $script:EffectRegistry
+}
+
+function Get-EffectDefinition {
+    param([string]$Name)
+    $reg = Get-EffectRegistry
+    foreach ($p in $reg.PSObject.Properties) {
+        if ($p.Name -eq $Name) { return [pscustomobject]@{ Name = $p.Name; Def = $p.Value } }
+    }
+    $known = (@($reg.PSObject.Properties) | ForEach-Object { $_.Name }) -join ', '
+    throw "Unknown effect '$Name'. Known effects: $known"
+}
+
+# Turns a spec value into the text that goes into the blob: labels become their
+# numeric code, booleans become 0/1, floats get VideoPad's six-decimal format.
+function Format-EffectValue {
+    param($Param, $Value, [string]$EffectName)
+    if ($Param.PSObject.Properties.Name -contains 'values') {
+        foreach ($v in $Param.values.PSObject.Properties) {
+            if ($v.Name -eq [string]$Value) { return [string]$v.Value }
+        }
+        if ([string]$Value -match '^-?\d+(\.\d+)?$') { return [string]$Value }
+        $labels = (@($Param.values.PSObject.Properties) | ForEach-Object { $_.Name }) -join ', '
+        throw "Effect '$EffectName' parameter '$($Param.key)' got '$Value'; expected one of: $labels"
+    }
+
+    switch ($Param.type) {
+        'bool' {
+            if ($Value -is [bool]) { if ($Value) { return '1' } else { return '0' } }
+            if ([string]$Value -match '^(1|true|yes|on)$') { return '1' }
+            if ([string]$Value -match '^(0|false|no|off)$') { return '0' }
+            throw "Effect '$EffectName' parameter '$($Param.key)' got '$Value'; expected true or false."
+        }
+        'int' { return ([int64][math]::Round([double]$Value)).ToString([Globalization.CultureInfo]::InvariantCulture) }
+        'float' { return ([double]$Value).ToString('0.000000', [Globalization.CultureInfo]::InvariantCulture) }
+        default { return [string]$Value }
+    }
+}
+
+# A wrapped parameter is a keyframe group, so replacing it wholesale is only safe
+# while the group holds no keyframes; otherwise the app keeps the animation and
+# ignores the new static value.
+function Test-EffectKeyframed {
+    param([string]$Value)
+    return [regex]::IsMatch($Value, 'keys(?:=|%3D)[1-9]')
+}
+
+function Format-EffectSlot {
+    param($Meta, $Value, [string]$EffectName, [bool]$Anonymous)
+    $num = Format-EffectValue -Param $Meta -Value $Value -EffectName $EffectName
+    if ($Anonymous) { return $num }
+    if ($Meta.wrap) { return [uri]::EscapeDataString('value=' + $num + '&userdata=0&keys=0') }
+    return $num
+}
+
+# Picks the base blob (an app preset, else the effect's default) and applies the
+# spec's parameter overrides to it.
+function New-EffectData {
+    param($Definition, [string]$EffectName, [string]$Preset, $Params)
+
+    $blob = $Definition.defaults
+    if ($Preset -and $Preset -notmatch '^(Default Preset|default)$') {
+        $found = $null
+        foreach ($p in $Definition.presets.PSObject.Properties) { if ($p.Name -eq $Preset) { $found = $p.Value } }
+        if ($null -eq $found) {
+            $names = @('Default Preset') + @(@($Definition.presets.PSObject.Properties) | ForEach-Object { $_.Name })
+            throw "Effect '$EffectName' has no preset '$Preset'. Available presets: $($names -join ', ')"
+        }
+        $blob = $found
+    }
+
+    $meta = @{}
+    foreach ($p in @($Definition.params)) { $meta[$p.key] = $p }
+
+    $overrides = @{}
+    if ($Params) {
+        foreach ($p in $Params.PSObject.Properties) {
+            if (-not $meta.ContainsKey($p.Name)) {
+                $keys = (@($Definition.params) | ForEach-Object { $_.key }) -join ', '
+                throw "Effect '$EffectName' has no parameter '$($p.Name)'. Parameters: $keys"
+            }
+            $overrides[$p.Name] = $p.Value
+        }
+    }
+    if ($overrides.Count -eq 0) { return $blob }
+
+    $parts = New-Object System.Collections.Generic.List[string]
+    $applied = @{}
+    foreach ($part in ($blob -split '&')) {
+        if ($part -eq '') { continue }
+        $eq = $part.IndexOf('=')
+        $key = $part
+        $val = ''
+        if ($eq -ge 0) { $key = $part.Substring(0, $eq); $val = $part.Substring($eq + 1) }
+
+        if (-not $overrides.ContainsKey($key)) { $parts.Add($part); continue }
+        if (Test-EffectKeyframed $val) {
+            throw "Effect '$EffectName' parameter '$key' is animated by preset '$Preset'; drop the params or use a static preset."
+        }
+        $applied[$key] = $true
+        $parts.Add($key + '=' + (Format-EffectSlot -Meta $meta[$key] -Value $overrides[$key] -EffectName $EffectName -Anonymous ([bool]$Definition.anonymous)))
+    }
+
+    # Parameters the app's blob does not carry are appended rather than dropped.
+    foreach ($p in $Params.PSObject.Properties) {
+        if ($applied.ContainsKey($p.Name)) { continue }
+        $parts.Add($p.Name + '=' + (Format-EffectSlot -Meta $meta[$p.Name] -Value $p.Value -EffectName $EffectName -Anonymous ([bool]$Definition.anonymous)))
+    }
+    return ($parts -join '&')
+}
+
+# Resolves one spec entry into the (id, preset label, blob) triple a slot needs.
+function Resolve-EffectSpec {
+    param($Entry, [string]$Where)
+    $names = @($Entry.PSObject.Properties.Name)
+
+    if (($names -contains 'id') -and ($names -contains 'data')) {
+        $label = if ($names -contains 'preset' -and $Entry.preset) { [string]$Entry.preset } else { 'Default Preset' }
+        $shown = if ($names -contains 'name' -and $Entry.name) { [string]$Entry.name } else { '#' + $Entry.id }
+        return [pscustomobject]@{ Name = $shown; Id = [int64]$Entry.id; Preset = $label; Data = [string]$Entry.data }
+    }
+    if ($names -notcontains 'name') { throw "Effect entry for $Where needs a 'name' (or both 'id' and 'data')." }
+
+    $found = Get-EffectDefinition -Name ([string]$Entry.name)
+    $preset = $null
+    if ($names -contains 'preset' -and $Entry.preset) { $preset = [string]$Entry.preset }
+    $params = $null
+    if ($names -contains 'params' -and $Entry.params) { $params = $Entry.params }
+    $label = if ($preset) { $preset } else { 'Default Preset' }
+    $data = New-EffectData -Definition $found.Def -EffectName $found.Name -Preset $preset -Params $params
+    return [pscustomobject]@{ Name = $found.Name; Id = [int64]$found.Def.id; Preset = $label; Data = $data }
+}
+
+# Replaces the slot list of an effectchains record, keeping every other field
+# (fadepoints, speed, volume, mute, hclip, ...) in its original order.
+function New-EffectChainLine {
+    param([string]$Line, $Effects)
+    $list = @($Effects)
+    $out = New-Object System.Collections.Generic.List[string]
+    $out.Add('size=' + $list.Count)
+    for ($i = 0; $i -lt $list.Count; $i++) {
+        $out.Add('type' + $i + '=' + [string]$list[$i].Id)
+        $out.Add('preset' + $i + '=' + [uri]::EscapeDataString([string]$list[$i].Preset))
+        $out.Add('data' + $i + '=' + [uri]::EscapeDataString([string]$list[$i].Data))
+    }
+    foreach ($part in ($Line -split '&')) {
+        if ($part -eq '') { continue }
+        $eq = $part.IndexOf('=')
+        $key = if ($eq -ge 0) { $part.Substring(0, $eq) } else { $part }
+        if ($key -eq 'size' -or $key -match '^(type|preset|data)\d+$') { continue }
+        $out.Add($part)
+    }
+    return ($out -join '&')
 }
 
 # --- read the template and map its sections ---------------------------------
@@ -338,10 +569,56 @@ function Resolve-Source {
     }
 }
 
+# --- expand splits and defaults --------------------------------------------
+# VideoPad stores a split clip as several clip pairs over one media handle,
+# which is exactly what repeated segments already produce, so "split" is
+# expanded into plain segments here and the rest of the writer never has to
+# know the difference. Effect chains are resolved per segment up front, so a
+# bad effect name fails before a single byte of project is written.
+$defaultEffects = @()
+if ($s.PSObject.Properties.Name -contains 'defaultEffects' -and $s.defaultEffects) {
+    $slot = 0
+    foreach ($e in @($s.defaultEffects)) {
+        $defaultEffects += Resolve-EffectSpec -Entry $e -Where "defaultEffects slot $($slot + 1)"
+        $slot++
+    }
+}
+
+$segmentList = New-Object System.Collections.Generic.List[object]
+$segNo = 0
+foreach ($seg in @($s.segments)) {
+    $segNo++
+    $names = @($seg.PSObject.Properties.Name)
+    if ($names -contains 'split' -and $seg.split) {
+        $start = [int64]$seg.start
+        $end = [int64]$seg.end
+        $cuts = @()
+        foreach ($t in @($seg.split)) {
+            $tv = [int64]$t
+            if ($tv -le $start -or $tv -ge $end) {
+                throw "Segment $segNo splits at $tv ms, which is outside its $start-$end ms range."
+            }
+            $cuts += $tv
+        }
+        $bounds = @($start) + @($cuts | Sort-Object -Unique) + @($end)
+        for ($b = 0; $b -lt $bounds.Count - 1; $b++) {
+            $part = [ordered]@{ source = $seg.source; start = [int64]$bounds[$b]; end = [int64]$bounds[$b + 1] }
+            if ($names -contains 'mute') { $part['mute'] = $seg.mute }
+            if ($names -contains 'effects') { $part['effects'] = $seg.effects }
+            $segmentList.Add([pscustomobject]$part)
+        }
+        continue
+    }
+    $segmentList.Add($seg)
+}
+$segments = $segmentList.ToArray()
+
 # --- lay the segments out end to end ---------------------------------------
 $plan = @()
 $cursor = [int64]0
-foreach ($seg in @($s.segments)) {
+$segIdx = 0
+foreach ($seg in @($segments)) {
+    $segIdx++
     if ($seg.PSObject.Properties.Name -notcontains 'source') { throw 'Every segment needs a "source".' }
     $src = Resolve-Source -Key $seg.source
 
@@ -354,6 +631,17 @@ foreach ($seg in @($s.segments)) {
     }
     $mute = $false
     if ($seg.PSObject.Properties.Name -contains 'mute' -and $seg.mute) { $mute = $true }
+
+    # Effects: an explicit array wins (even an empty one), otherwise defaultEffects.
+    $effects = @()
+    if ($seg.PSObject.Properties.Name -contains 'effects') {
+        $slot = 0
+        foreach ($e in @($seg.effects)) {
+            $effects += Resolve-EffectSpec -Entry $e -Where "segment $segIdx, effect slot $($slot + 1)"
+            $slot++
+        }
+    }
+    else { $effects = $defaultEffects }
 
     # Reuse an existing pair when this source still has an unused one, so a spec
     # that never repeats a source rewrites the template in place (byte-identical
@@ -386,6 +674,7 @@ foreach ($seg in @($s.segments)) {
         LengthMs     = ($end - $start)
         OffsetMs     = $cursor
         Mute         = $mute
+        Effects      = $effects
         VideoH       = $videoH
         AudioH       = $audioH
         VideoIdx     = $videoIdx
@@ -483,7 +772,27 @@ foreach ($id in $addedOrder) {
     }
 }
 
-# --- bin: append media records for anything new -----------------------------
+# --- effectchains: attach the per-clip effect chains ------------------------
+# Only video handles carry effects; audio records keep the template's empty
+# chain, which is what VideoPad writes itself. Every other field of the record
+# (fades, speed, hclip) is preserved by New-EffectChainLine.
+$effectsFor = @{}
+$effectSlots = 0
+foreach ($p in $plan) {
+    if ($null -eq $p.VideoH -or @($p.Effects).Count -eq 0) { continue }
+    $effectsFor[[string]$p.VideoH] = $p.Effects
+    $effectSlots += @($p.Effects).Count
+}
+if ($effectsFor.Count -gt 0) {
+    for ($i = 0; $i -lt $ecBodyNew.Count; $i++) {
+        $hc = [string](Get-Field $ecBodyNew[$i] 'hclip')
+        if ($effectsFor.ContainsKey($hc)) {
+            $ecBodyNew[$i] = New-EffectChainLine -Line $ecBodyNew[$i] -Effects $effectsFor[$hc]
+        }
+    }
+}
+
+
 $vProto = @($mediaByH.Values | Where-Object { $_.Type -eq '3' }) | Select-Object -First 1
 if (-not $vProto) { throw 'Template has no video media record (type=3) to clone when adding media.' }
 $aProto = $null
@@ -625,6 +934,7 @@ if ($seqNameEnc) {
     DroppedClips     = $droppedClips
     AllocatedHandles = $script:Allocated
     MediaAdded       = @($addedOrder).Count
+    EffectCount      = $effectSlots
     Clips            = @($plan | ForEach-Object {
             [pscustomobject]@{
                 Source      = $_.SourceKey
@@ -634,6 +944,7 @@ if ($seqNameEnc) {
                 LengthMs    = $_.LengthMs
                 OffsetMs    = $_.OffsetMs
                 Mute        = $_.Mute
+                Effects     = @($_.Effects | ForEach-Object { $_.Name })
                 VideoHandle = $_.VideoH
                 AudioHandle = $_.AudioH
                 ReusedPair  = (-not $_.IsNew)

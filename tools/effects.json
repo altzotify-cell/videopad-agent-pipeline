@@ -1,0 +1,264 @@
+{
+    "$comment":  "VideoPad video-effect registry used by New-Project.ps1. The top-level key is the stable name an agent writes in a spec; 'id' is VideoPad's internal effect id. 'defaults' and 'presets' are the raw effect Value blobs from HKCU:\\Software\\NCH Software\\VideoPad\\EffectPresets\\<id>\\<preset>\\Value. New-Project.ps1 rewrites the blob for -params and URL-escapes it into effectchains dataN. params[].wrap=true means the blob stores a keyframe-style value (value=..%26userdata=0%26keys=0); wrap=false means a plain scalar.",
+    "version":  1,
+    "verifiedAgainst":  "VideoPad Professional 8.91 (32-bit)",
+    "effects":  {
+        "mirror": {
+            "id": 36,
+            "label": "Mirror",
+            "category": "geometry",
+            "summary": "Mirrors the frame around its centre axis; the cheapest way to make footage read as a different shot.",
+            "anonymous": false,
+            "params": [
+                { "key": "enabled", "type": "bool", "wrap": true, "default": 1 },
+                { "key": "mirrordirection", "type": "enum", "wrap": false, "default": "horizontal", "values": { "horizontal": 0, "vertical": 1 } }
+            ],
+            "defaults": "enabled=value%3D1%26userdata%3D0%26keys%3D0&mirrordirection=0",
+            "presets": {}
+        },
+        "flip": {
+            "id": 69,
+            "label": "Flip",
+            "category": "geometry",
+            "summary": "Independent horizontal and vertical flips; same family as mirror but the two axes toggle separately.",
+            "anonymous": false,
+            "params": [
+                { "key": "horzflip", "type": "bool", "wrap": true, "default": 0 },
+                { "key": "vertflip", "type": "bool", "wrap": true, "default": 0 }
+            ],
+            "defaults": "horzflip=value%3D0%26userdata%3D0%26keys%3D0&vertflip=value%3D0%26userdata%3D0%26keys%3D0",
+            "presets": {}
+        },
+        "rotate": {
+            "id": 33,
+            "label": "Rotate",
+            "category": "geometry",
+            "summary": "Rotates the frame on three axes. 'z' is the in-plane rotation a caller usually wants; x and y tumble the image in 3D.",
+            "anonymous": false,
+            "params": [
+                { "key": "x", "type": "float", "wrap": true, "default": 0, "min": -360, "max": 360 },
+                { "key": "y", "type": "float", "wrap": true, "default": 0, "min": -360, "max": 360 },
+                { "key": "z", "type": "float", "wrap": true, "default": 0, "min": -360, "max": 360 }
+            ],
+            "defaults": "x=value%3D0.000000%26userdata%3D0%26keys%3D0&y=value%3D0.000000%26userdata%3D0%26keys%3D0&z=value%3D0.000000%26userdata%3D0%26keys%3D0",
+            "presets": {
+                "Rotate 90 Degrees": "x=value%3D360.000000%26userdata%3D0%26keys%3D0&y=value%3D360.000000%26userdata%3D0%26keys%3D0&z=value%3D90.000000%26userdata%3D0%26keys%3D0",
+                "Rotate 180 Degrees": "x=value%3D360.000000%26userdata%3D0%26keys%3D0&y=value%3D360.000000%26userdata%3D0%26keys%3D0&z=value%3D180.000000%26userdata%3D0%26keys%3D0",
+                "Rotate 270 Degrees": "x=value%3D360.000000%26userdata%3D0%26keys%3D0&y=value%3D360.000000%26userdata%3D0%26keys%3D0&z=value%3D270.000000%26userdata%3D0%26keys%3D0"
+            }
+        },
+        "scale": {
+            "id": 34,
+            "label": "Crop / Scale",
+            "category": "geometry",
+            "summary": "Scales the frame about an origin. x/y below 1 crops the edges away (digital zoom), above 1 letterboxes; lockaspect ties the two axes.",
+            "anonymous": false,
+            "params": [
+                { "key": "x", "type": "float", "wrap": true, "default": 1, "min": 0, "max": 10 },
+                { "key": "y", "type": "float", "wrap": true, "default": 1, "min": 0, "max": 10 },
+                { "key": "lockaspect", "type": "int", "wrap": false, "default": 1, "values": { "off": 0, "on": 1 } },
+                { "key": "originx", "type": "float", "wrap": true, "default": 0, "min": -1, "max": 1 },
+                { "key": "originy", "type": "float", "wrap": true, "default": 0, "min": -1, "max": 1 },
+                { "key": "offsetx", "type": "float", "wrap": true, "default": 0, "min": -1, "max": 1 },
+                { "key": "offsety", "type": "float", "wrap": true, "default": 0, "min": -1, "max": 1 }
+            ],
+            "defaults": "x=value%3D1.000000%26userdata%3D0%26keys%3D0&y=value%3D1.000000%26userdata%3D0%26keys%3D0&lockaspect=1&originx=value%3D0.000000%26userdata%3D0%26keys%3D0&originy=value%3D0.000000%26userdata%3D0%26keys%3D0&offsetx=value%3D0.000000%26userdata%3D0%26keys%3D0&offsety=value%3D0.000000%26userdata%3D0%26keys%3D0",
+            "presets": {
+                "Quarter Screen": "x=value%3D0.500000%26userdata%3D0%26keys%3D0&y=value%3D0.500000%26userdata%3D0%26keys%3D0&lockaspect=0&originx=value%3D0.000000%26userdata%3D0%26keys%3D0&originy=value%3D0.000000%26userdata%3D0%26keys%3D0&offsetx=value%3D0.000000%26userdata%3D0%26keys%3D0&offsety=value%3D0.000000%26userdata%3D0%26keys%3D0",
+                "16:9 to 4:3": "x=value%3D0.750000%26userdata%3D0%26keys%3D0&y=value%3D1.000000%26userdata%3D0%26keys%3D0&lockaspect=0&originx=value%3D0.000000%26userdata%3D0%26keys%3D0&originy=value%3D0.000000%26userdata%3D0%26keys%3D0&offsetx=value%3D0.000000%26userdata%3D0%26keys%3D0&offsety=value%3D0.000000%26userdata%3D0%26keys%3D0",
+                "4:3 to 16:9": "x=value%3D1.340000%26userdata%3D0%26keys%3D0&y=value%3D1.000000%26userdata%3D0%26keys%3D0&lockaspect=0&originx=value%3D0.000000%26userdata%3D0%26keys%3D0&originy=value%3D0.000000%26userdata%3D0%26keys%3D0&offsetx=value%3D0.000000%26userdata%3D0%26keys%3D0&offsety=value%3D0.000000%26userdata%3D0%26keys%3D0"
+            }
+        },
+        "crop": {
+            "id": 17,
+            "label": "Crop",
+            "category": "geometry",
+            "summary": "Keeps the rectangle between (x1,y1) and (x2,y2) and stretches it back to full frame; coordinates are percentages of the source frame.",
+            "anonymous": false,
+            "params": [
+                { "key": "x1", "type": "float", "wrap": true, "default": 0, "min": 0, "max": 100 },
+                { "key": "y1", "type": "float", "wrap": true, "default": 0, "min": 0, "max": 100 },
+                { "key": "x2", "type": "float", "wrap": true, "default": 100, "min": 0, "max": 100 },
+                { "key": "y2", "type": "float", "wrap": true, "default": 100, "min": 0, "max": 100 },
+                { "key": "restraint2", "type": "int", "wrap": false, "default": 0 }
+            ],
+            "defaults": "x1=value%3D0.000000%26userdata%3D0%26keys%3D0&y1=value%3D0.000000%26userdata%3D0%26keys%3D0&x2=value%3D100.000000%26userdata%3D0%26keys%3D0&y2=value%3D100.000000%26userdata%3D0%26keys%3D0&restraint2=0",
+            "presets": {
+                "Centre Half": "x1=value%3D25.000000%26userdata%3D0%26keys%3D0&y1=value%3D25.000000%26userdata%3D0%26keys%3D0&x2=value%3D75.000000%26userdata%3D0%26keys%3D0&y2=value%3D75.000000%26userdata%3D0%26keys%3D0&restraint2=0"
+            }
+        },
+        "colorAdjust": {
+            "id": 6,
+            "label": "Brightness / Contrast / Gamma",
+            "category": "colour",
+            "summary": "The three luma controls in one effect. brightness is on VideoPad's 0-255 scale where 128 is neutral, contrast 0-100 and gamma 0.1-10.",
+            "anonymous": false,
+            "params": [
+                { "key": "brightness", "type": "float", "wrap": true, "default": 128, "min": 0, "max": 255 },
+                { "key": "contrast", "type": "float", "wrap": true, "default": 25, "min": 0, "max": 100 },
+                { "key": "gamma", "type": "float", "wrap": true, "default": 1, "min": 0.1, "max": 10 }
+            ],
+            "defaults": "brightness=value%3D128.000000%26userdata%3D0%26keys%3D0&contrast=value%3D25.000000%26userdata%3D0%26keys%3D0&gamma=value%3D1.000000%26userdata%3D0%26keys%3D0",
+            "presets": {
+                "Bright": "brightness=value%3D50.000000%26userdata%3D0%26keys%3D0&contrast=value%3D75.000000%26userdata%3D0%26keys%3D0&gamma=value%3D3.140000%26userdata%3D0%26keys%3D0",
+                "Dark": "brightness=value%3D-75.000000%26userdata%3D0%26keys%3D0&contrast=value%3D10.000000%26userdata%3D0%26keys%3D0&gamma=value%3D1.200000%26userdata%3D0%26keys%3D0"
+            }
+        },
+        "saturation": {
+            "id": 24,
+            "label": "Saturation",
+            "category": "colour",
+            "summary": "Single-slider saturation. -100 is fully desaturated (grey), 0 is the neutral-ish default of the slider, positive values oversaturate.",
+            "anonymous": true,
+            "params": [
+                { "key": "value", "type": "float", "wrap": true, "default": 25, "min": -100, "max": 100 }
+            ],
+            "defaults": "value=25.000000&userdata=0&keys=0",
+            "presets": {
+                "Completely Unsaturated": "value=-100.000000&userdata=0&keys=0",
+                "Less Saturated": "value=-12.500000&userdata=0&keys=0",
+                "Saturated": "value=17.260000&userdata=0&keys=0",
+                "More Saturated": "value=54.260000&userdata=0&keys=0",
+                "Completely Saturated": "value=100.000000&userdata=0&keys=0"
+            }
+        },
+        "temperature": {
+            "id": 26,
+            "label": "Colour Temperature",
+            "category": "colour",
+            "summary": "Warm/cool tint. Negative values push blue (cooler), positive values push orange (warmer); Normal is 0.",
+            "anonymous": true,
+            "params": [
+                { "key": "value", "type": "float", "wrap": true, "default": 64, "min": -128, "max": 128 }
+            ],
+            "defaults": "value=64.000000&userdata=0&keys=0",
+            "presets": {
+                "Normal": "value=0.000000&userdata=0&keys=0",
+                "Cool": "value=-32.000000&userdata=0&keys=0",
+                "Cooler": "value=-96.000000&userdata=0&keys=0",
+                "Coolest": "value=-128.000000&userdata=0&keys=0",
+                "Warm": "value=32.000000&userdata=0&keys=0",
+                "Warmer": "value=96.000000&userdata=0&keys=0",
+                "Warmest": "value=128.000000&userdata=0&keys=0"
+            }
+        },
+        "hue": {
+            "id": 25,
+            "label": "Hue",
+            "category": "colour",
+            "summary": "Rotates hue around the colour wheel in degrees. VideoPad ships the effect with a 90 degree shift, not neutral; pass 0 (or preset Normal) for no change.",
+            "anonymous": true,
+            "params": [
+                { "key": "value", "type": "float", "wrap": true, "default": 90, "min": 0, "max": 360 }
+            ],
+            "defaults": "value=90.000000&userdata=0&keys=0",
+            "presets": {
+                "Normal": "value=0.000000&userdata=0&keys=0",
+                "Half Way": "value=190.000000&userdata=0&keys=0"
+            }
+        },
+        "fade": {
+            "id": 28,
+            "label": "Fade",
+            "category": "colour",
+            "summary": "Opacity against black, 0-100. VideoPad ships the effect at 50 (half transparent); the Fade In / Fade Out presets are keyframed ramps across the whole clip.",
+            "anonymous": true,
+            "params": [
+                { "key": "value", "type": "float", "wrap": true, "default": 50, "min": 0, "max": 100 }
+            ],
+            "defaults": "value=50.000000&userdata=0&keys=0",
+            "presets": {
+                "Fade In": "value=50.000000&userdata=0&keys=2&position0=0.000000&value0=0.000000&userdata0=0&prevcpposition0=0.000000&prevcpvalue0=0.000000&nextcpposition0=0.000000&nextcpvalue0=0.000000&position1=1.000000&value1=100.000000&userdata1=0&prevcpposition1=0.000000&prevcpvalue1=0.000000&nextcpposition1=0.000000&nextcpvalue1=0.000000",
+                "Fade Out": "value=0.000000&userdata=0&keys=2&position0=0.000000&value0=100.000000&userdata0=0&prevcpposition0=0.000000&prevcpvalue0=0.000000&nextcpposition0=0.000000&nextcpvalue0=0.000000&position1=1.000000&value1=0.000000&userdata1=0&prevcpposition1=0.000000&prevcpvalue1=0.000000&nextcpposition1=0.000000&nextcpvalue1=0.000000"
+            }
+        },
+        "pixelate": {
+            "id": 15,
+            "label": "Pixelate",
+            "category": "style",
+            "summary": "Mosaic/pixelation. value is the block size; 1 is barely visible, 20+ destroys detail.",
+            "anonymous": true,
+            "params": [
+                { "key": "value", "type": "float", "wrap": true, "default": 5, "min": 1, "max": 100 }
+            ],
+            "defaults": "value=5.000000&userdata=0&keys=0",
+            "presets": {
+                "Minor Pixelation": "value=2.000000&userdata=0&keys=0",
+                "Moderate Pixelation": "value=6.000000&userdata=0&keys=0",
+                "Major Pixelation": "value=20.000000&userdata=0&keys=0"
+            }
+        },
+        "noise": {
+            "id": 5,
+            "label": "Noise",
+            "category": "style",
+            "summary": "Adds film-grain style noise; intensity 0-100, saturation 0-100, coverage 0-100.",
+            "anonymous": false,
+            "params": [
+                { "key": "intensity", "type": "float", "wrap": true, "default": 25, "min": 0, "max": 100 },
+                { "key": "saturation", "type": "float", "wrap": true, "default": 0, "min": 0, "max": 100 },
+                { "key": "coverage", "type": "float", "wrap": true, "default": 100, "min": 0, "max": 100 }
+            ],
+            "defaults": "intensity=value%3D25.000000%26userdata%3D0%26keys%3D0&saturation=value%3D0.000000%26userdata%3D0%26keys%3D0&coverage=value%3D100.000000%26userdata%3D0%26keys%3D0",
+            "presets": {}
+        },
+        "oldFilm": {
+            "id": 4,
+            "label": "Old Film",
+            "category": "style",
+            "summary": "Analog-film damage: gate shake, brightness flicker, dust spots, vertical scratches and monochrome. Every toggle is a 0/1 flag.",
+            "anonymous": false,
+            "params": [
+                { "key": "enable", "type": "bool", "wrap": true, "default": 1 },
+                { "key": "shake", "type": "bool", "wrap": true, "default": 1 },
+                { "key": "flicker", "type": "bool", "wrap": true, "default": 1 },
+                { "key": "spots", "type": "bool", "wrap": true, "default": 1 },
+                { "key": "lines", "type": "bool", "wrap": true, "default": 1 },
+                { "key": "monochrome", "type": "bool", "wrap": true, "default": 1 }
+            ],
+            "defaults": "enable=value%3D1%26userdata%3D0%26keys%3D0&shake=value%3D1%26userdata%3D0%26keys%3D0&flicker=value%3D1%26userdata%3D0%26keys%3D0&spots=value%3D1%26userdata%3D0%26keys%3D0&lines=value%3D1%26userdata%3D0%26keys%3D0&monochrome=value%3D1%26userdata%3D0%26keys%3D0",
+            "presets": {}
+        },
+        "blur": {
+            "id": 11,
+            "label": "Blur",
+            "category": "style",
+            "summary": "Gaussian blur; intensity 0-100.",
+            "anonymous": false,
+            "params": [
+                { "key": "enabled", "type": "bool", "wrap": true, "default": 1 },
+                { "key": "intensity", "type": "float", "wrap": true, "default": 50, "min": 0, "max": 100 }
+            ],
+            "defaults": "enabled=value%3D1%26userdata%3D0%26keys%3D0&intensity=value%3D50.000000%26userdata%3D0%26keys%3D0",
+            "presets": {}
+        },
+        "border": {
+            "id": 82,
+            "label": "Border",
+            "category": "style",
+            "summary": "Draws a coloured frame around the picture. wa is the border width in pixels and c0-c5 are the per-edge colour channels; the shipped default is a red frame.",
+            "anonymous": false,
+            "params": [
+                { "key": "pf", "type": "int", "wrap": false, "default": 5 },
+                { "key": "lt", "type": "int", "wrap": false, "default": 3000 },
+                { "key": "r", "type": "float", "wrap": true, "default": 255, "min": 0, "max": 255 },
+                { "key": "g", "type": "float", "wrap": true, "default": 0, "min": 0, "max": 255 },
+                { "key": "b", "type": "float", "wrap": true, "default": 0, "min": 0, "max": 255 },
+                { "key": "wa", "type": "float", "wrap": true, "default": 4, "min": 0, "max": 500 },
+                { "key": "wf", "type": "float", "wrap": true, "default": 1, "min": 0, "max": 10 },
+                { "key": "ftb", "type": "int", "wrap": false, "default": 0 },
+                { "key": "scale", "type": "float", "wrap": true, "default": 1, "min": 0, "max": 10 },
+                { "key": "opacity", "type": "float", "wrap": true, "default": 0.9, "min": 0, "max": 1 },
+                { "key": "c0", "type": "int", "wrap": false, "default": 255 },
+                { "key": "c1", "type": "int", "wrap": false, "default": 255 },
+                { "key": "c2", "type": "int", "wrap": false, "default": 255 },
+                { "key": "c3", "type": "int", "wrap": false, "default": 255 },
+                { "key": "c4", "type": "int", "wrap": false, "default": 255 },
+                { "key": "c5", "type": "int", "wrap": false, "default": 255 },
+                { "key": "usedefaultcolor", "type": "int", "wrap": false, "default": 1 }
+            ],
+            "defaults": "pf=5&lt=3000&r=value%3D255.000000%26userdata%3D0%26keys%3D0&g=value%3D0.000000%26userdata%3D0%26keys%3D0&b=value%3D0.000000%26userdata%3D0%26keys%3D0&wa=value%3D4.000000%26userdata%3D0%26keys%3D0&wf=value%3D1.000000%26userdata%3D0%26keys%3D0&ftb=0&scale=value%3D1.000000%26userdata%3D0%26keys%3D0&opacity=value%3D0.900000%26userdata%3D0%26keys%3D0&c0=255&c1=255&c2=255&c3=255&c4=255&c5=255&usedefaultcolor=1",
+            "presets": {}
+        }
+    }
+}

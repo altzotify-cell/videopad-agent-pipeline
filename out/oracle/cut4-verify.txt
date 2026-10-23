@@ -1,0 +1,40 @@
+﻿
+
+saturation: export@5 vs Ep3@5 : 4.06
+
+
+
+
+
+chroma export@1 : 0
+chroma export@3 : 0
+chroma export@5 : 0
+chroma Ep3@5    : 33.4
+
+
+
+
+
+rotate: export@7 vs bars@1 transposed cw  : 99.26
+rotate: export@7 vs bars@1 transposed ccw : 46.86
+rotate: export@7 vs bars@1 as-is          : 95.49
+rotate: export@7 keeps source chroma      : 133.1 vs 226.3
+
+
+
+
+
+mirror: export@13 vs Ep3@901 mirrored L-R : 64.47
+mirror: export@13 vs Ep3@901 mirrored T-B : 104.2
+mirror: export@13 vs Ep3@901 unmirrored   : 64.48
+
+
+
+
+
+mirror: export@13 vs its own L-R mirror : 0.19
+mirror: export@13 vs its own T-B mirror : 152.91
+mirror: Ep3@901 vs its own L-R mirror   : 35.69
+
+
+

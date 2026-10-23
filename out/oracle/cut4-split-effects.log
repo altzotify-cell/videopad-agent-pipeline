@@ -1,0 +1,12 @@
+=== autosave watcher ===
+[23:35:17] target      : out\cut4-split-effects.vpj
+[23:35:17] autosave pre: 23:26:38
+[23:35:25] open        : Loaded=True prompts=1 in 5s
+[23:35:25] title       : VideoPad Professional by NCH Software - cut4-split-effects.vpj - Licensed to user
+[23:35:28] autosave new: 23:35:26 (after 3s)
+[23:35:28] sequence    : Split%20%2B%20Effect%20Test
+[23:35:28] status      : parsed a sequence name
+[23:35:28] checksum    : dfe52cec742016e0b0122837b6273c81cb7588ad1033f00c4e3736dbf855357b
+[23:35:28] hindex      : 3805
+[23:35:28] capture     : logs\autosave-cut4.roundtrip.vpj
+=== done ===

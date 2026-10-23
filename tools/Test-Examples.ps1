@@ -31,11 +31,17 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$Examples = (Join-Path (Split-Path -Parent $PSScriptRoot) 'examples'),
+    [string]$Examples,
     [string[]]$Spec
 )
 
 $ErrorActionPreference = 'Stop'
+
+# $PSScriptRoot is not populated yet while a param default is being evaluated,
+# so the examples folder is resolved here instead of in the param block.
+if (-not $Examples) {
+    $Examples = Join-Path (Split-Path -Parent $PSScriptRoot) 'examples'
+}
 $writer = Join-Path $PSScriptRoot 'New-Project.ps1'
 
 $specs = if ($Spec) {

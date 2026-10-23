@@ -31,7 +31,7 @@ format-level reference.
 | 16–20 | `trackclips=4` + per-clip timeline records (`horiginalclip=` points at the media handle) |
 | 21–22 | `subtitletracks=1` + subtitle track |
 | 23–24 | `subtitleclips=0`, `transitions=0` |
-| 25–34 | `effectchains=9` + one line per clip/sequence (`hclip=`, speed, volume, mute) |
+| 25–34 | `effectchains=9` + one line per clip/sequence (`hclip=`, speed, volume, mute, and `size=` effect slots) |
 | 35–36 | `groups=0`, `bookmarks=0` |
 | 37 | export settings blob |
 | 38 | `EditOutput_*` settings |
@@ -128,6 +128,15 @@ came back as 392, 390, 391, 389 instead of 390, 392, 389, 391) while every
 template's order — and v2's appended records (allocated handles 3382…3387) came
 back from the app unchanged too, so appending is safe.
 
+**There is no split record.** A split clip is simply two (or more) `type=7` pairs
+with the same `horiginalclip`, `out` of one equal to `in` of the next, and
+`offset` continuing where the previous ended. `cut4-split-effects.vpj` writes a
+6 s clip split at 2 s/4 s that way and the app re-saves it as a split — the
+round-trip returns three adjacent pairs, not one pair plus a marker. No
+GOP/keyframe alignment is needed: the trim window is expressed in source
+milliseconds and the decoder seeks, so a cut in the middle of a GOP renders like
+any other trim.
+
 ## The autosave oracle — verify an edit without exporting
 
 `%APPDATA%\NCH Software\VideoPad\autosave.vpj` is rewritten roughly **3 seconds
@@ -159,7 +168,7 @@ app's writer and this writer agree on the format.
 file prompt) → wait for the autosave refresh → capture it next to the log and
 report the parsed sequence name, checksum and `hindex`.
 
-## Writer: `tools/New-Project.ps1` (v2)
+## Writer: `tools/New-Project.ps1` (v3)
 
 Takes a JSON spec and produces a `.vpj` by editing a known-good template, so
 every field not explicitly modelled survives byte-for-byte. The template's
@@ -169,27 +178,32 @@ prompt in ~4 s.
 ```json
 {
   "template": "probe.vpj",
-  "output":   "../out/cut3-addmedia.vpj",
-  "sequenceName": "Add Media Test",
+  "output":   "../out/cut4-split-effects.vpj",
+  "sequenceName": "Split + Effect Test",
   "media":    [ { "id": "bars", "path": "../out/testmedia/bars.mp4" } ],
+  "defaultEffects": [ { "name": "saturation", "preset": "Completely Unsaturated" } ],
   "segments": [
-    { "source": 1,      "start": 0,      "end": 15000 },
-    { "source": "bars", "start": 0,      "end": 6000  },
-    { "source": 1,      "start": 900000, "end": 915000, "mute": true }
+    { "source": 1,      "start": 0,      "end": 6000,   "split": [ 2000, 4000 ] },
+    { "source": "bars", "start": 0,      "end": 6000,   "split": [ 3000 ],
+      "effects": [ { "name": "rotate", "params": { "z": 90 } } ] },
+    { "source": 1,      "start": 900000, "end": 903000,
+      "effects": [ { "name": "mirror", "params": { "mirrordirection": "vertical" } },
+                   { "name": "colorAdjust", "preset": "Bright", "params": { "contrast": 60 } } ] }
   ]
 }
 ```
 
 `source` is a template source index (timeline order) or a `media` id; `start`/`end`
 are milliseconds; paths resolve against the spec's folder. Segment order becomes
-timeline order, so the list doubles as a reorder, a drop and a reuse.
+timeline order, so the list doubles as a reorder, a drop and a reuse. `split`
+holds absolute source milliseconds strictly inside `start`/`end`.
 
 **Handles.** `hindex` is the project's next-free counter and sits far above the
-handles in use (3382 vs 392 in the sample). v2 allocates upward from
+handles in use (3382 vs 392 in the sample). The writer allocates upward from
 `max(hindex, max handle + 1)` and writes the bumped value back, so a project it
 produced and the app then re-saved stays collision-free.
 
-**Clips (v2).** Each segment needs a `type=7` video/audio pair. A pair whose
+**Clips.** Each segment needs a `type=7` video/audio pair. A pair whose
 `horiginalclip` matches the segment's source is reused when still free — that is
 what keeps a one-segment-per-source spec byte-identical to the v1 output.
 Otherwise the pair is cloned from the template's own prototype line, with `h`,
@@ -199,7 +213,7 @@ records: a `trackclips` record with no `effectchains` record (or the reverse)
 would be a dangling reference, and leaving the clip in place would put a ghost
 clip on the timeline.
 
-**Media (v2).** Adding a file means adding the pair VideoPad creates when a clip
+**Media.** Adding a file means adding the pair VideoPad creates when a clip
 is imported — an audio record and a video record pointing at the same `path`,
 cross-linked by `hlinked`, with `hadlinkedvideo` / `hadlinkedaudio` set:
 
@@ -216,9 +230,65 @@ is the right shape. Note `clips=` counts the sequence record *plus* every media
 record — adding one file therefore raises `clips=` by 2 and `effectchains=` by 2,
 and adding one clip raises `trackclips=` by 2 and `effectchains=` by 2.
 
-**Scope after v2:** rename, trim, reorder, drop, reuse (n×), add media, mute.
-Not modelled: split, effects/transitions/titles, speed, audio mixing, extra
-tracks, audio-less media.
+**Scope after v3:** rename, trim, reorder, drop, reuse (n×), add media, mute,
+split at arbitrary cut points, and video effect chains per clip. Not modelled:
+transitions, titles, audio mixing, keyframed parameters, speed, extra tracks,
+audio-less media.
+
+## Effect chains (`effectchains`) — the slot format
+
+One record per clip, sequence and media handle, keyed by `hclip=` (not by line
+position), so a chain is found by the handle of the clip it belongs to. The
+record is a **fixed slot list**, and each slot is a set of querystring parameters:
+
+```
+hclip=3392&fadepoints=0&speedchangef=1.000000&size=2&type0=36&preset0=Default%20Preset&data0=...&type1=6&preset1=Bright&data1=...&fadeinlen=0&...&mute=0
+```
+
+| key | meaning |
+|---|---|
+| `size` | number of effect slots; **the only thing that says how many `typeN`/`dataN` to read** |
+| `typeN` | the effect's id (the `id` field in `tools/effects.json`), matching the `Type` of its `%APPDATA%\…\VideoPad\EffectPresets` key |
+| `presetN` | display label of the preset — a *name*, not a lookup key |
+| `dataN` | **the effect's own parameter set, as a querystring, URL-escaped exactly once** |
+
+`dataN` is itself a querystring, one entry per parameter, and each entry's value
+is `value=<n>&userdata=<n>&keys=<n>` (itself escaped):
+
+```
+data0 = enabled%3Dvalue%3D1%26userdata%3D0%26keys%3D0%26mirrordirection%3D1
+        │        │                 │
+        │        └ params of type 36
+        └ & between params is %26
+```
+
+- `value` is the numeric value in `%f` form (6 decimals) or an enum's integer;
+- `keys=0` means "no keyframes" — a non-zero `keys` means the parameter is
+  animated and its value blob is a keyframe list. **Overriding such a parameter is
+  refused by the writer** rather than silently dropped;
+- `userdata=0` in everything seen so far.
+
+Because the escaping is single-pass on a nested querystring, the practical rule
+is: **build the inner querystring, escape it once, put it after `dataN=`**, and
+never double-escape.
+
+Effect ids observed (all 15 registry entries were checked against the live
+`EffectPresets` hive): `6` colour adjust, `24` saturation, `33` rotate, `36`
+mirror, plus brightness/contrast/gamma-style groups inside `6`.
+
+**What the app does to a chain on save:**
+
+- `dataN` comes back **verbatim** — a hand-authored chain round-trips intact
+  (`out/oracle/cut4-split-effects.roundtrip.vpj`);
+- `presetN` is **re-derived** from `dataN`: if the parameters still equal a
+  shipped preset the name survives, otherwise it becomes `Custom`. So an edited
+  effect loses its preset *label* even though its values are untouched —
+  **diff `dataN`, not `presetN`**;
+- `size` and slot order are preserved; audio clips keep the empty default
+  (`size=0`) unless an audio effect is authored, and the writer does not.
+
+Parameter metadata (which keys exist, their types, enums, defaults and preset
+blobs) lives in `tools/effects.json`, not here.
 
 
 ## Export — driving it, and proving the output
@@ -304,13 +374,15 @@ and `tools/Probe-ExportDialog.ps1` (control-map dump).
 
 ## Still open
 
-- **Splitting a clip** into two adjacent pieces: expressible (two clips sharing a
-  source with touching offsets) but unverified — a split that does not land on a
-  keyframe may behave differently from the app's own Split.
-- **Effects, transitions, titles, speed**: `effectchains` is only ever cloned as
-  the empty default (`size=0&fadepoints=0&speedchangef=1.000000&…&mute=0`), so a
-  non-default chain, `speedchangef≠1` duration semantics, or a transitions record
-  would have to be authored from scratch.
+- **Transitions**: a `transitions` section has not even been inventoried; effect
+  chains cover per-clip effects only, not the between-clip crossfade records.
+- **Titles**: the `Type=2SubtitlesExport=1` fragment is in every file, but no
+  title object has been authored or round-tripped.
+- **Audio effects and mixing**: audio `effectchains` records keep `size=0`;
+  volume, pan and audio filters are unwritten.
+- **Keyframed parameters**: a parameter group with `keys!=0` is read but never
+  merged — the writer refuses to override it.
+- **Speed**: `speedchangef≠1` duration semantics are unverified.
 - **Audio-less media**: added media is written as a `type=5`/`type=3` pair and
   rejected when `ffprobe` finds no audio stream.
 - **Round-trip through a real save** to normalise the checksum, instead of relying

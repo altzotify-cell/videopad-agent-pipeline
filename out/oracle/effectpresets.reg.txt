@@ -1,0 +1,357 @@
+﻿
+
+Id      : 1
+Presets : Default Preset
+Default : value=1&userdata=0&keys=0
+
+Id      : 2
+Presets : Default Preset
+Default : value=100.000000&userdata=0&keys=0
+
+Id      : 3
+Presets : Default Preset
+Default : value=1&userdata=0&keys=0
+
+Id      : 4
+Presets : Default Preset
+Default : enable=value%3D1%26userdata%3D0%26keys%3D0&shake=value%3D1%26userdata%3D0%26keys%3D0&flicker=value%3D1%26userdata%3D0%26keys%3D0&spots=value%3D1%26userdata%3D0%26keys%3D0&lines=value%3D1%26userdata%3D0%26keys%3D0&monochrome=value%3D1%26userdata%3D0%26keys%3D0
+
+Id      : 5
+Presets : Default Preset
+Default : intensity=value%3D25.000000%26userdata%3D0%26keys%3D0&saturation=value%3D0.000000%26userdata%3D0%26keys%3D0&coverage=value%3D100.000000%26userdata%3D0%26keys%3D0
+
+Id      : 6
+Presets : Bright | Dark | Default Preset
+Default : brightness=value%3D128.000000%26userdata%3D0%26keys%3D0&contrast=value%3D25.000000%26userdata%3D0%26keys%3D0&gamma=value%3D1.000000%26userdata%3D0%26keys%3D0
+
+Id      : 7
+Presets : Default Preset
+Default : value=1&userdata=0&keys=0
+
+Id      : 8
+Presets : Default Preset
+Default : value=1&userdata=0&keys=0
+
+Id      : 9
+Presets : Default Preset | Large Brush | Medium Brush | Small Brush
+Default : value=3.000000&userdata=0&keys=0
+
+Id      : 10
+Presets : Default Preset
+Default : enabled=value%3D1%26userdata%3D0%26keys%3D0&horizontalwavecount=value%3D1.000000%26userdata%3D0%26keys%3D0&horizontalwaveamplitude=value%3D0.000000%26userdata%3D0%26keys%3D0&verticalwavecount=value%3D1.000000%26userdata%3D0%26keys%3D0&verticalwaveamplitude=value%3D15.000000%26userdata%3D0%26keys%3D0&speed=value%3D1.000000%26userdata%3D0%26keys%3D0
+
+Id      : 11
+Presets : Default Preset
+Default : enabled=value%3D1%26userdata%3D0%26keys%3D0&intensity=value%3D50.000000%26userdata%3D0%26keys%3D0
+
+Id      : 12
+Presets : Default Preset
+Default : enabled=value%3D1%26userdata%3D0%26keys%3D0&dropspersec=value%3D20.000000%26userdata%3D0%26keys%3D0
+
+Id      : 14
+Presets : Default Preset
+Default : value=1&userdata=0&keys=0
+
+Id      : 15
+Presets : Default Preset | Major Pixelation | Minor Pixelation | Moderate Pixelation
+Default : value=5.000000&userdata=0&keys=0
+
+Id      : 17
+Presets : Default Preset
+Default : x1=value%3D0.000000%26userdata%3D0%26keys%3D0&y1=value%3D0.000000%26userdata%3D0%26keys%3D0&x2=value%3D100.000000%26userdata%3D0%26keys%3D0&y2=value%3D100.000000%26userdata%3D0%26keys%3D0&restraint2=0
+
+Id      : 24
+Presets : Completely Saturated | Completely Unsaturated | Default Preset | Less Saturated | More Saturated | Saturated
+Default : value=25.000000&userdata=0&keys=0
+
+Id      : 25
+Presets : Cycle | Default Preset | Half Way | Normal
+Default : value=90.000000&userdata=0&keys=0
+
+Id      : 26
+Presets : Cool | Cooler | Coolest | Default Preset | Normal | Warm | Warmer | Warmest
+Default : value=64.000000&userdata=0&keys=0
+
+Id      : 28
+Presets : Default Preset | Fade In | Fade In and Out | Fade Out | Fade Out and In
+Default : value=50.000000&userdata=0&keys=0
+
+Id      : 29
+Presets : Default Preset
+Default : value=1&userdata=0&keys=0
+
+Id      : 30
+Presets : Default Preset | Spin Clockwise | Spin Clockwise (scaled) | Spin Counter-clockwise | Spin Counter-clockwise (scaled)
+Default : positionx=value%3D0.000000%26userdata%3D0%26keys%3D0&positiony=value%3D0.000000%26userdata%3D0%26keys%3D0&scale=value%3D1.000000%26userdata%3D0%26keys%3D0&rotation=value%3D0.000000%26userdata%3D0%26keys%3D0&originx=value%3D0.000000%26userdata%3D0%26keys%3D0&originy=value%3D0.000000%26userdata%3D0%26keys%3D0
+
+Id      : 31
+Presets : Default Preset
+Default : bg=value%3D9.000000%26userdata%3D0%26keys%3D0&fg=value%3D10.000000%26userdata%3D0%26keys%3D0&r=value%3D0.000000%26userdata%3D0%26keys%3D0&g=value%3D255.000000%26userdata%3D0%26keys%3D0&b=value%3D0.000000%26userdata%3D0%26keys%3D0&fe=value%3D0.000000%26userdata%3D0%26keys%3D0&enabled=value%3D1%26userdata%3D0%26keys%3D0&mode=2
+
+Id      : 32
+Presets : Default Preset
+Default : red=value%3D50.000000%26userdata%3D0%26keys%3D0&green=value%3D100.000000%26userdata%3D0%26keys%3D0&blue=value%3D255.000000%26userdata%3D0%26keys%3D0&intensity=value%3D50.000000%26userdata%3D0%26keys%3D0
+
+Id      : 33
+Presets : Default Preset | Rotate 180 Degrees | Rotate 270 Degrees | Rotate 90 Degrees | Spin Clockwise | Spin Counter-clockwise | Spin Down | Spin Left | Spin Right | Spin Up
+Default : x=value%3D0.000000%26userdata%3D0%26keys%3D0&y=value%3D0.000000%26userdata%3D0%26keys%3D0&z=value%3D0.000000%26userdata%3D0%26keys%3D0
+
+Id      : 34
+Presets : 16:9 to 4:3 | 4:3 to 16:9 | Default Preset | Quarter Screen | Zoom In (close) | Zoom In (far) | Zoom Out (close) | Zoom Out (far)
+Default : x=value%3D1.000000%26userdata%3D0%26keys%3D0&y=value%3D1.000000%26userdata%3D0%26keys%3D0&lockaspect=1&originx=value%3D0.000000%26userdata%3D0%26keys%3D0&originy=value%3D0.000000%26userdata%3D0%26keys%3D0&offsetx=value%3D0.000000%26userdata%3D0%26keys%3D0&offsety=value%3D0.000000%26userdata%3D0%26keys%3D0
+
+Id      : 35
+Presets : Default Preset | Slide Down | Slide Down Left | Slide Down Right | Slide Left | Slide Right | Slide Up | Slide Up Left | Slide Up Right
+Default : x=value%3D0.000000%26userdata%3D0%26keys%3D0&y=value%3D0.000000%26userdata%3D0%26keys%3D0
+
+Id      : 36
+Presets : Default Preset
+Default : enabled=value%3D1%26userdata%3D0%26keys%3D0&mirrordirection=0
+
+Id      : 37
+Presets : Default Preset
+Default : ra=value%3D0.000000%26userdata%3D0%26keys%3D0&ga=value%3D0.000000%26userdata%3D0%26keys%3D0&ba=value%3D0.000000%26userdata%3D0%26keys%3D0&rb=value%3D255.000000%26userdata%3D0%26keys%3D0&gb=value%3D255.000000%26userdata%3D0%26keys%3D0&bb=value%3D255.000000%26userdata%3D0%26keys%3D0
+
+Id      : 38
+Presets : Default Preset
+Default : w=value%3D0.100000%26userdata%3D0%26keys%3D0&r=value%3D50.000000%26userdata%3D0%26keys%3D0&g=value%3D100.000000%26userdata%3D0%26keys%3D0&b=value%3D255.000000%26userdata%3D0%26keys%3D0&s=1
+
+Id      : 39
+Presets : Default Preset
+Default : w=value%3D0.200000%26userdata%3D0%26keys%3D0&s=value%3D0.500000%26userdata%3D0%26keys%3D0&r=value%3D0.000000%26userdata%3D0%26keys%3D0&g=value%3D0.000000%26userdata%3D0%26keys%3D0&b=value%3D0.000000%26userdata%3D0%26keys%3D0
+
+Id      : 40
+Presets : Default Preset
+Default : c=value%3D20.000000%26userdata%3D0%26keys%3D0&p=value%3D0.000000%26userdata%3D0%26keys%3D0&s=0
+
+Id      : 41
+Presets : Default Preset
+Default : cc=value%3D11.000000%26userdata%3D0%26keys%3D0&et=value%3D58.000000%26userdata%3D0%26keys%3D0&br=value%3D5.000000%26userdata%3D0%26keys%3D0
+
+Id      : 42
+Presets : Default Preset
+Default : rgbcount=2&rgbx0=0&rgby0=0&rgbx1=255&rgby1=255&redcount=2&redx0=0&redy0=0&redx1=255&redy1=255&greencount=2&greenx0=0&greeny0=0&greenx1=255&greeny1=255&bluecount=2&bluex0=0&bluey0=0&bluex1=255&bluey1=255
+
+Id      : 43
+Presets : Default Preset
+Default : value=0.250000&userdata=0&keys=0
+
+Id      : 44
+Presets : Default Preset
+Default : value=300.000000&userdata=0&keys=0
+
+Id      : 45
+Presets : Default Preset
+Default : angle=value%3D45.000000%26userdata%3D0%26keys%3D0&r=value%3D0.000000%26userdata%3D0%26keys%3D0&g=value%3D0.000000%26userdata%3D0%26keys%3D0&b=value%3D0.000000%26userdata%3D0%26keys%3D0&opacity=value%3D0.500000%26userdata%3D0%26keys%3D0&distance=value%3D0.000000%26userdata%3D0%26keys%3D0&blurriness=value%3D10.000000%26userdata%3D0%26keys%3D0
+
+Id      : 46
+Presets : Default Preset
+Default : x1=value%3D0.000000%26userdata%3D0%26keys%3D0&y1=value%3D0.000000%26userdata%3D0%26keys%3D0&x2=value%3D100.000000%26userdata%3D0%26keys%3D0&y2=value%3D100.000000%26userdata%3D0%26keys%3D0&restraint2=0&maintainaspect=0
+
+Id      : 47
+Presets : Default Preset
+Default : strength=value%3D5.000000%26userdata%3D0%26keys%3D0&scale=value%3D0.800000%26userdata%3D0%26keys%3D0
+
+Id      : 48
+Presets : Default Preset
+Default : strength=value%3D5.000000%26userdata%3D0%26keys%3D0&scale=value%3D0.800000%26userdata%3D0%26keys%3D0pointX0=value%3D0.250000%26userdata%3D0%26keys%3D0&pointX1=value%3D0.750000%26userdata%3D0%26keys%3D0&pointX2=value%3D0.750000%26userdata%3D0%26keys%3D0&pointX3=value%3D0.250000%26userdata%3D0%26keys%3D0&pointY0=value%3D0.250000%26userdata%3D0%26keys%3D0&pointY1=value%3D0.250000%26userdata
+          %3D0%26keys%3D0&pointY2=value%3D0.750000%26userdata%3D0%26keys%3D0&pointY3=value%3D0.750000%26userdata%3D0%26keys%3D0&feathering=value%3D0.000000%26userdata%3D0%26keys%3D0&maskinside=1
+
+Id      : 49
+Presets : Default Preset
+Default : value=5.000000&userdata=0&keys=0
+
+Id      : 50
+Presets : Default Preset
+Default : value=20.000000&userdata=0&keys=0
+
+Id      : 51
+Presets : Default Preset
+Default : partindex=0&layoutX=1&layoutY=1&mode=0&hbias=value%3D0.500000%26userdata%3D0%26keys%3D0&vbias=value%3D0.500000%26userdata%3D0%26keys%3D0&scale=value%3D1.000000%26userdata%3D0%26keys%3D0
+
+Id      : 52
+Presets : Default Preset
+Default : value=1&userdata=0&keys=0
+
+Id      : 53
+Presets : Default Preset
+Default : magnitudex=value%3D10.000000%26userdata%3D0%26keys%3D0&magnitudey=value%3D10.000000%26userdata%3D0%26keys%3D0&magnituderotate=value%3D0.000000%26userdata%3D0%26keys%3D0&frequency=value%3D10.000000%26userdata%3D0%26keys%3D0&fillborders=value%3D1%26userdata%3D0%26keys%3D0
+
+Id      : 54
+Presets : Default Preset
+Default : enable=value%3D1%26userdata%3D0%26keys%3D0&vignette=value%3D1%26userdata%3D0%26keys%3D0
+
+Id      : 55
+Presets : Default Preset
+Default : shape=1&size=value%3D3.000000%26userdata%3D0%26keys%3D0&spacing=value%3D50.000000%26userdata%3D0%26keys%3D0&red=value%3D0.000000%26userdata%3D0%26keys%3D0&green=value%3D0.000000%26userdata%3D0%26keys%3D0&blue=value%3D0.000000%26userdata%3D0%26keys%3D0
+
+Id      : 56
+Presets : Default Preset
+Default : value=1&userdata=0&keys=0
+
+Id      : 57
+Presets : Default Preset
+Default : value=1&userdata=0&keys=0
+
+Id      : 58
+Presets : Default Preset | Pan Left to Right (150% Zoom) | Pan Left to Right (200% Zoom) | Pan Right to Left (150% Zoom) | Pan Right to Left (200% Zoom) | Zoom from Lower Left Corner | Zoom from Lower Right Corner | Zoom from Upper Left Corner | Zoom from Upper Right Corner | Zoom to Lower Left Corner | Zoom to Lower Right Corner | Zoom to Upper Left Corner | Zoom to Upper Right Corner
+Default : 0.000000 0.000000 1.000000 1.000000 0.250000 0.250000 0.750000 0.750000
+
+Id      : 59
+Presets : Default Preset | Smooth | Smoother | Smoothest
+Default : value=12.500000&userdata=0&keys=0
+
+Id      : 60
+Presets : Default Preset | Sharp | Sharper | Sharpest
+Default : value=12.500000&userdata=0&keys=0
+
+Id      : 61
+Presets : Default Preset
+Default : x=value%3D0.000000%26userdata%3D0%26keys%3D0&y=value%3D0.000000%26userdata%3D0%26keys%3D0&mirror=value%3D0%26userdata%3D0%26keys%3D0
+
+Id      : 62
+Presets : Default Preset | Move Away | Move Closer | Pan Left | Pan Right
+Default : h=value%3D0.000000%26userdata%3D0%26keys%3D0&v=value%3D0.000000%26userdata%3D0%26keys%3D0&s=value%3D100.000000%26userdata%3D0%26keys%3D0
+
+Id      : 63
+Presets : Default Preset
+Default : enabled=value%3D1%26userdata%3D0%26keys%3D0&type=0&positionx=value%3D0.000000%26userdata%3D0%26keys%3D0&positiony=value%3D0.000000%26userdata%3D0%26keys%3D0&sizex=value%3D10.000000%26userdata%3D0%26keys%3D0&sizey=value%3D10.000000%26userdata%3D0%26keys%3D0&shape=0
+
+Id      : 64
+Presets : Default Preset
+Default : enabled=value%3D1%26userdata%3D0%26keys%3D0&horizontal=value%3D0.000000%26userdata%3D0%26keys%3D0&vertical=value%3D0.000000%26userdata%3D0%26keys%3D0
+
+Id      : 65
+Presets : Default Preset
+Default : enabled=value%3D1%26userdata%3D0%26keys%3D0&horizontal=value%3D0.000000%26userdata%3D0%26keys%3D0&vertical=value%3D0.000000%26userdata%3D0%26keys%3D0&fadeduration=1000
+
+Id      : 66
+Presets : Default Preset
+Default : enabled=value%3D1%26userdata%3D0%26keys%3D0&horizontal=value%3D0.000000%26userdata%3D0%26keys%3D0&vertical=value%3D0.000000%26userdata%3D0%26keys%3D0&fadeduration=1000&fadeduration=1000
+
+Id      : 68
+Presets : Default Preset
+Default : x=value%3D0.000000%26userdata%3D0%26keys%3D0&y=value%3D0.000000%26userdata%3D0%26keys%3D0&ra=value%3D50.000000%26userdata%3D0%26keys%3D0&s=value%3D1.000000%26userdata%3D0%26keys%3D0&r=value%3D0.000000%26userdata%3D0%26keys%3D0&g=value%3D0.000000%26userdata%3D0%26keys%3D0&b=value%3D0.000000%26userdata%3D0%26keys%3D0&rx=value%3D100.000000%26userdata%3D0%26keys%3D0&ry=value%3D100.000000%26u
+          serdata%3D0%26keys%3D0&o=value%3D1.000000%26userdata%3D0%26keys%3D0
+
+Id      : 69
+Presets : Default Preset
+Default : horzflip=value%3D0%26userdata%3D0%26keys%3D0&vertflip=value%3D0%26userdata%3D0%26keys%3D0
+
+Id      : 70
+Presets : Default Preset | Rotating Blur | Wide Blur
+Default : s=value%3D5.000000%26userdata%3D0%26keys%3D0&a=value%3D0.000000%26userdata%3D0%26keys%3D0
+
+Id      : 72
+Presets : Default Preset | Noise | Smooth
+Default : strength=value%3D0.500000%26userdata%3D0%26keys%3D0&smoothing=value%3D0.500000%26userdata%3D0%26keys%3D0
+
+Id      : 74
+Presets : Default Preset
+Default : s=value%3D5.000000%26userdata%3D0%26keys%3D0
+
+Id      : 75
+Presets : Default Preset
+Default : s=value%3D5.000000%26userdata%3D0%26keys%3D0
+
+Id      : 77
+Presets : Default Preset
+Default : aspectrationum=0&aspectratioden=0
+
+Id      : 78
+Presets : Default Preset
+Default : aspectrationum=0&aspectratioden=0
+
+Id      : 79
+Presets : Default Preset
+Default : aspectrationum=0&aspectratioden=0
+
+Id      : 80
+Presets : Default Preset
+Default : horzflip=value%3D0%26userdata%3D0%26keys%3D0&vertflip=value%3D0%26userdata%3D0%26keys%3D0&rotation=0
+
+Id      : 82
+Presets : Default Preset
+Default : pf=5&lt=3000&r=value%3D255.000000%26userdata%3D0%26keys%3D0&g=value%3D0.000000%26userdata%3D0%26keys%3D0&b=value%3D0.000000%26userdata%3D0%26keys%3D0&wa=value%3D4.000000%26userdata%3D0%26keys%3D0&wf=value%3D1.000000%26userdata%3D0%26keys%3D0&ftb=0&scale=value%3D1.000000%26userdata%3D0%26keys%3D0&opacity=value%3D0.900000%26userdata%3D0%26keys%3D0&c0=255&c1=255&c2=255&c3=255&c4=255&c5=255&
+          usedefaultcolor=1
+
+Id      : 83
+Presets : Default Preset
+Default : pf=5&lt=3000&b=&scale=value%3D1.000000%26userdata%3D0%26keys%3D0&opacity=value%3D1.000000%26userdata%3D0%26keys%3D0&sf=value%3D1.700000%26userdata%3D0%26keys%3D0&sa=value%3D10.000000%26userdata%3D0%26keys%3D0&ss=value%3D0.200000%26userdata%3D0%26keys%3D0&gl=value%3D0.000000%26userdata%3D0%26keys%3D0&dv=value%3D0.250000%26userdata%3D0%26keys%3D0&ssv=value%3D0.200000%26userdata%3D0%26keys%
+          3D0
+
+Id      : 84
+Presets : Default Preset
+Default : pf=25&lt=2300&scale=value%3D0.500000%26userdata%3D0%26keys%3D0&opacity=value%3D1.000000%26userdata%3D0%26keys%3D0&dv=value%3D0.250000%26userdata%3D0%26keys%3D0&f=value%3D0.000000%26userdata%3D0%26keys%3D0&g=value%3D0.000000%26userdata%3D0%26keys%3D0
+
+Id      : 87
+Presets : Default Preset
+Default : strength=value%3D3.000000%26userdata%3D0%26keys%3D0&scale=value%3D1.000000%26userdata%3D0%26keys%3D0
+
+Id      : 1000
+Presets : Default Preset
+Default : 
+
+Id      : 1001
+Presets : Default Preset | Fade In | Fade In and Out | Fade Out | Fade Out and In | Maximum | Minimum
+Default : amplify=value%3D100.000000%26userdata%3D0%26keys%3D0
+
+Id      : 1002
+Presets : Default Preset
+Default : delay=value%3D100.000000%26userdata%3D0%26keys%3D0&modulation=value%3D50.000000%26userdata%3D0%26keys%3D0&depth=value%3D30.000000%26userdata%3D0%26keys%3D0&gain=value%3D50.000000%26userdata%3D0%26keys%3D0
+
+Id      : 1003
+Presets : Default Preset
+Default : threshold=value%3D0.000000%26userdata%3D0%26keys%3D0&ratio=value%3D0.000000%26userdata%3D0%26keys%3D0&limit=value%3D0.000000%26userdata%3D0%26keys%3D0
+
+Id      : 1004
+Presets : Default Preset
+Default : degree=value%3D100.000000%26userdata%3D0%26keys%3D0&level=value%3D0.000000%26userdata%3D0%26keys%3D0
+
+Id      : 1005
+Presets : Default Preset
+Default : gain=value%3D50.000000%26userdata%3D0%26keys%3D0&time=value%3D100.000000%26userdata%3D0%26keys%3D0
+
+Id      : 1006
+Presets : Default Preset
+Default : delay=value%3D10.000000%26userdata%3D0%26keys%3D0&modulation=value%3D50.000000%26userdata%3D0%26keys%3D0&depth=value%3D50.000000%26userdata%3D0%26keys%3D0&gain=value%3D50.000000%26userdata%3D0%26keys%3D0
+
+Id      : 1007
+Presets : AM Radio | Analog Telephone | Default Preset | General Audio Cleanup
+Default : frequency=value%3D2000.000000%26userdata%3D0%26keys%3D0
+
+Id      : 1008
+Presets : Default Preset
+Default : decay=value%3D1000.000000%26userdata%3D0%26keys%3D0&diffusion=value%3D50.000000%26userdata%3D0%26keys%3D0&wetgain=value%3D0.000000%26userdata%3D0%26keys%3D0&drygain=value%3D0.000000%26userdata%3D0%26keys%3D0
+
+Id      : 1009
+Presets : 100% Left | 100% Right | 75% Left | 75% Right | Center | Center to Left | Center to Right | Default Preset | Left to Right | Right to Left
+Default : value=0.000000&userdata=0&keys=0
+
+Id      : 1010
+Presets : Default Preset
+Default : iPresetIndex=0&iDisplayIndex=0&nPoints=2&Point0X=10000&Point0Y=0&Point1X=20000000&Point1Y=0
+
+Id      : 1011
+Presets : Bass Only | Cut High Frequencies | Cut Inaudible High Frequencies | Cut Very High Frequencies | Default Preset | Guitar Cleanup | Human Voice Cleanup | Human Voice Intelligible | Very Low Frequencies Only
+Default : frequency=value%3D1600.000000%26userdata%3D0%26keys%3D0
+
+Id      : 1012
+Presets : Default Preset | Remove Hum and Hiss
+Default : level=value%3D-20.000000%26userdata%3D0%26keys%3D0
+
+Id      : 1013
+Presets : Default Preset
+Default : level=value%3D-20.000000%26userdata%3D0%26keys%3D0
+
+Id      : 1014
+Presets : Default Preset
+Default : PeakLevelPercent=value%3D100.000000%26userdata%3D0%26keys%3D0&iGainPercent=100&bInitialized=0
+
+Id      : 1015
+Presets : Default Preset
+Default : PeakLevelPercent=value%3D100.000000%26userdata%3D0%26keys%3D0&iGainPercent=100&bInitialized=0
+
+
+
+
