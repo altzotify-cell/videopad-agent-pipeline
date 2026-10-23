@@ -1,0 +1,7 @@
+ffprobe.exe : [mov,mp4,m4a,3gp,3g2,mj2 @ 0000025ff795a000] moov atom not found
+At C:\Users\user\Downloads\videopad\tools\Export-Project.ps1:89 char:12
++     $out = & ffprobe -v error -show_entries 'format=duration' -of 'cs ...
++            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([mov,mp4,m4a,3g... atom not found:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 

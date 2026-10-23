@@ -1,0 +1,18 @@
+# Rendered output is not source. Both exports are 170 MB, which exceeds GitHub's
+# 100 MB per-file hard limit. Their SHA256 is recorded in docs/HANDOFF.md §8:
+#   agent-cut-v2.mp4 / agent-cut-first-export.mp4
+#   FDCA15802A463E3E7D0BF63AFF595E2E76013E8B6D7353891E48D31FB13CB16D
+out/*.mp4
+
+# VideoPad installer binaries and the registration backup: not part of the project
+*.exe
+reg_backup_registration.reg
+
+# Scratch frame dumps used for the MAE content checks
+out/frames/
+*.gray
+
+# OS cruft
+Thumbs.db
+desktop.ini
+.DS_Store

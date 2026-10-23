@@ -1,0 +1,12 @@
+=== autosave watcher ===
+[21:48:28] target      : C:\Users\user\Downloads\videopad\probe_agent.vpj
+[21:48:28] autosave pre: 21:45:36
+[21:48:33] open        : Loaded=True prompts=1 in 4.2s
+[21:48:33] title       : VideoPad Professional by NCH Software - probe_agent.vpj - Licensed to user
+[21:48:36] autosave new: 21:48:35 (after 3s)
+[21:48:36] sequence    : Agent%20Test
+[21:48:36] status      : parsed a sequence name
+[21:48:36] checksum    : 3bd7605681f8355aff4dd1b3899c7e1e749eab42fe2af816ea00609ea7a1e898
+[21:48:36] hindex      : 3702
+[21:48:36] capture     : C:\Users\user\Downloads\videopad\logs\autosave-check.roundtrip.vpj
+=== done ===

@@ -1,0 +1,12 @@
+=== autosave watcher ===
+[21:49:18] target      : C:\Users\user\Downloads\videopad\out\cut1.vpj
+[21:49:18] autosave pre: 21:48:35
+[21:49:23] open        : Loaded=True prompts=1 in 4s
+[21:49:23] title       : VideoPad Professional by NCH Software - cut1.vpj - Licensed to user
+[21:49:26] autosave new: 21:49:25 (after 3s)
+[21:49:26] sequence    : Agent%20Cut
+[21:49:26] status      : parsed a sequence name
+[21:49:26] checksum    : ad391b5a44b7cc78880252bb268764320c76e3349ed4068daf2cd139f4039404
+[21:49:26] hindex      : 3628
+[21:49:26] capture     : C:\Users\user\Downloads\videopad\logs\cut1-roundtrip.roundtrip.vpj
+=== done ===

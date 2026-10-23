@@ -1,0 +1,17 @@
+{
+    "template":  "C:\\Users\\user\\Documents\\probe.vpj",
+    "output":  "C:\\Users\\user\\Downloads\\videopad\\out\\cut1.vpj",
+    "sequenceName":  "Agent Cut",
+    "segments":  [
+                     {
+                         "source":  1,
+                         "start":  0,
+                         "end":  90000
+                     },
+                     {
+                         "source":  0,
+                         "start":  60000,
+                         "end":  180000
+                     }
+                 ]
+}
