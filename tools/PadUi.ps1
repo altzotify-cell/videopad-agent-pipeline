@@ -45,6 +45,7 @@ public static class PadUiNative
     [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
     [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT r);
+[DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
     [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(POINT p);
     [DllImport("user32.dll")] public static extern IntPtr GetParent(IntPtr hWnd);
     [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
@@ -278,6 +279,37 @@ function Invoke-PadControlClick {
     $BM_CLICK = 0x00F5
     [PadUiNative]::SendMessage($Hwnd, $BM_CLICK, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
     Start-Sleep -Milliseconds $SettleMs
+}
+
+function Set-PadWindowSize {
+    <#
+    .SYNOPSIS
+        Restores a window to an exact size and position.
+
+    .DESCRIPTION
+        Ribbon coordinates are calibrated in physical pixels for a specific window
+        size, and the ribbon scales with DPI rather than with the window, so a
+        maximised window invalidates the calibration instead of scaling it. Pinning
+        the window back to the calibrated size is the reliable fix; scaling the
+        coordinates by width alone is not, because the vertical offsets do not
+        follow the width.
+    #>
+    [CmdletBinding()]
+    param(
+        $Window,
+        [Parameter(Mandatory = $true)][int]$Width,
+        [Parameter(Mandatory = $true)][int]$Height,
+        [int]$X = 0,
+        [int]$Y = 0,
+        [int]$SettleMs = 700
+    )
+
+    $SWP_NOZORDER = 0x0004
+    $SWP_NOACTIVATE = 0x0010
+    [PadUiNative]::SetWindowPos([IntPtr]$Window.Hwnd, [IntPtr]::Zero, $X, $Y, $Width, $Height,
+        ($SWP_NOZORDER -bor $SWP_NOACTIVATE)) | Out-Null
+    Start-Sleep -Milliseconds $SettleMs
+    return (Get-PadWindow)
 }
 
 function Get-PadPointWindow {

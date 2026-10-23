@@ -1,0 +1,12 @@
+=== autosave watcher ===
+[22:54:52] target      : C:\Users\user\Downloads\videopad\out\cut3-addmedia.vpj
+[22:54:52] autosave pre: 22:53:30
+[22:55:00] open        : Loaded=True prompts=1 in 5s
+[22:55:00] title       : VideoPad Professional by NCH Software - cut3-addmedia.vpj - Licensed to user
+[22:55:03] autosave new: 22:55:01 (after 3s)
+[22:55:03] sequence    : Add%20Media%20Test
+[22:55:03] status      : parsed a sequence name
+[22:55:03] checksum    : 116a95e7eecf5f4ad4cc0e9b9de33f7d78e64c8b42ffbda475799d394b7a849d
+[22:55:03] hindex      : 3768
+[22:55:03] capture     : C:\Users\user\Downloads\videopad\out\oracle\cut3-addmedia.roundtrip.vpj
+=== done ===

@@ -75,6 +75,7 @@ $ErrorActionPreference = 'Stop'
 # (1024 logical at 150% scaling). Scaled by the window's actual width so a
 # differently sized window still lands on the same controls.
 $refWidth = 1536.0
+$refHeight = 817.0
 $homeTab = @{ X = 175; Y = 66 }
 $exportButton = @{ X = 543; Y = 105 }
 $videoFileItem = @{ X = 515; Y = 176 }
@@ -85,12 +86,33 @@ function Write-Step {
 }
 
 function Get-ProbeDuration {
+    <#
+        Duration in seconds, or $null while the file is still being written.
+
+        ffprobe reports "moov atom not found" on stderr for a file that is still
+        encoding, and with $ErrorActionPreference='Stop' PowerShell turns native
+        stderr output into a terminating error - which used to kill this poll loop
+        mid-encode when stderr was redirected to a file. stderr is therefore
+        merged and ignored, and only a parseable number on stdout counts.
+    #>
     param([string]$Path)
     if (-not (Get-Command ffprobe -ErrorAction SilentlyContinue)) { return $null }
-    $out = & ffprobe -v error -show_entries 'format=duration' -of 'csv=p=0' $Path 2>$null
-    if ($LASTEXITCODE -ne 0 -or -not $out) { return $null }
-    $value = 0.0
-    if ([double]::TryParse(($out | Select-Object -First 1), [ref]$value)) { return $value }
+
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'SilentlyContinue'
+    try {
+        $raw = & ffprobe -v error -show_entries 'format=duration' -of 'csv=p=0' $Path 2>&1
+        $code = $LASTEXITCODE
+    }
+    catch { $raw = @(); $code = -1 }
+    finally { $ErrorActionPreference = $previous }
+
+    if ($code -ne 0) { return $null }
+    foreach ($line in @($raw)) {
+        $text = [string]$line
+        $value = 0.0
+        if ([double]::TryParse($text.Trim(), [ref]$value)) { return $value }
+    }
     return $null
 }
 
@@ -116,6 +138,21 @@ if ($ProjectPath) {
 
 $window = Get-PadWindow
 Write-Step "Editor window $($window.Hwnd) at $($window.Left),$($window.Top) $($window.Width)x$($window.Height)"
+
+# Pin the window to the calibrated geometry first. The ribbon scales with DPI, not
+# with the window, so on a maximised 1942x1030 window a width-scaled click lands
+# below the ribbon and the Export dropdown never opens. Resizing makes the
+# calibration exact (scale 1.0); scaling coordinates is only a fallback.
+if ([Math]::Abs($window.Width - $refWidth) -gt 1 -or [Math]::Abs($window.Height - $refHeight) -gt 1) {
+    $pinned = Set-PadWindowSize -Window $window -Width ([int]$refWidth) -Height ([int]$refHeight) -X 0 -Y 0
+    if ($pinned) {
+        Write-Step "Pinned window to $($pinned.Width)x$($pinned.Height) (calibration size)"
+        $window = $pinned
+    }
+    else {
+        Write-Step 'WARNING: could not resize the window; falling back to scaled coordinates'
+    }
+}
 
 $scale = $window.Width / $refWidth
 if ([Math]::Abs($scale - 1.0) -gt 0.01) {
