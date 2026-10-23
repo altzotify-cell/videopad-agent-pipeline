@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Opens a .vpj project in VideoPad unattended, auto-answering the
     "Damaged File" checksum prompt.
@@ -32,7 +32,8 @@
     Do not close a running VideoPad instance (fails fast instead).
 
 .OUTPUTS
-    PSCustomObject: Loaded, Title, PromptDismissed, PromptCount, ElapsedSeconds, Message
+    PSCustomObject: Loaded, Title, PromptDismissed, PromptCount, Modals,
+    ElapsedSeconds, Message
 
 .NOTES
     Verified against VideoPad Professional 8.91 (32-bit), licensed.
@@ -65,8 +66,11 @@ if (-not ('NativeInput' -as [type])) {
 }
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
+. (Join-Path $PSScriptRoot 'PadUi.ps1')   # Find-PadControl / Invoke-PadControlClick
 
 $script:Root = [System.Windows.Automation.AutomationElement]::RootElement
+$script:ModalLog = New-Object System.Collections.ArrayList
+
 
 function Get-PadProcess {
     @(Get-Process -Name 'videopad' -ErrorAction SilentlyContinue)
@@ -88,6 +92,71 @@ function Find-ByName {
     $Element.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $cond)
 }
 
+function Get-PadDialogWindows {
+    <#
+        Every VideoPad top-level window except the largest one (the main window),
+        found by Win32 enumeration. UI Automation cannot be used here: the
+        "Save changes?" prompt is a real #32770 with real Button children, yet UIA
+        reports no such top-level window and no button children at all.
+    #>
+    param([int]$ProcessId)
+    $wins = @(Get-PadWindows -MinArea 1000)
+    if ($wins.Count -le 1) { return @() }
+    $mainH = ($wins | Sort-Object { $_.Width * $_.Height } -Descending | Select-Object -First 1).Hwnd
+    return @($wins | Where-Object { $_.Hwnd -ne $mainH })
+}
+
+function Get-PadDescendantTexts {
+    param([int64]$Hwnd)
+    $items = New-Object System.Collections.ArrayList
+    $cb = [PadUiNative+EnumProc] {
+        param($h, $l)
+        $t = New-Object System.Text.StringBuilder 512
+        [PadUiNative]::GetWindowTextW($h, $t, 512) | Out-Null
+        if ($t.Length -gt 0) { [void]$items.Add($t.ToString()) }
+        return $true
+    }
+    [PadUiNative]::EnumChildWindows([IntPtr]$Hwnd, $cb, [IntPtr]::Zero) | Out-Null
+    return , @($items.ToArray())
+}
+
+function Clear-PadModals {
+    <#
+        Answers every modal that is not the checksum prompt. A stale dialog from an
+        earlier session otherwise blocks the whole flow: VideoPad swallows WM_CLOSE
+        while a modal is up, and clicking the main window does nothing.
+
+        Seen in practice:
+          * "The current project has been changed..." -> [Save] [Discard] [Cancel]
+            one per WM_CLOSE that was swallowed, so they stack
+          * "New media has been connected to your computer." -> [Add Files] [No]
+            raised when files land in a watched folder - e.g. our own export
+
+        Never answers a "damaged file" prompt (its Cancel would abandon the load);
+        the caller confirms that one with WM_COMMAND/IDOK instead.
+    #>
+    param([int]$ProcessId)
+
+    $clicked = @()
+    foreach ($win in (Get-PadDialogWindows -ProcessId $ProcessId)) {
+        $msg = (Get-PadDescendantTexts -Hwnd $win.Hwnd) -join ' '
+        if ($msg -match 'damaged') { continue }
+
+        foreach ($label in @('Discard', "Don't Save", 'No', 'Close', 'Cancel')) {
+            $h = Find-PadControl -Window $win -Text $label -ClassName 'Button'
+            if ($h) {
+                Invoke-PadControlClick -Hwnd $h -SettleMs 500
+                $clicked += ('{0} -> [{1}]' -f $win.Class, $label)
+                break
+            }
+        }
+    }
+    foreach ($c in $clicked) { [void]$script:ModalLog.Add($c) }
+    return $clicked
+}
+
+
+
 # --- 1. Close any running instance (single-instance drops the file argument) ---
 $existing = Get-PadProcess
 if ($existing) {
@@ -97,14 +166,21 @@ if ($existing) {
     foreach ($proc in $existing) {
         $main = Get-MainWindow -ProcessId $proc.Id
         if ($null -eq $main) { continue }
-        # Clear a pending checksum prompt first, otherwise WM_CLOSE is swallowed.
-        $dlg = Find-ByName -Element $main -Name 'Damaged File'
-        if ($dlg) {
-            [NativeInput]::PostMessage([IntPtr][int64]$dlg.Current.NativeWindowHandle, $WM_COMMAND, $IDOK, [IntPtr]::Zero) | Out-Null
-            Start-Sleep -Milliseconds 600
+        # A modal (checksum prompt, "New media has been connected", "Save changes?")
+        # swallows WM_CLOSE, so answer whatever is up and retry a few times.
+        for ($attempt = 0; $attempt -lt 4; $attempt++) {
+            $dlg = Find-ByName -Element $main -Name 'Damaged File'
+            if ($dlg) {
+                [NativeInput]::PostMessage([IntPtr][int64]$dlg.Current.NativeWindowHandle, $WM_COMMAND, $IDOK, [IntPtr]::Zero) | Out-Null
+                Start-Sleep -Milliseconds 600
+            }
+            Clear-PadModals -ProcessId $proc.Id  | Out-Null
+            [NativeInput]::CloseWindow([int]$main.Current.NativeWindowHandle) | Out-Null
+            Start-Sleep -Milliseconds 1200
+            if (-not (Get-PadProcess)) { break }
         }
-        [NativeInput]::CloseWindow([int]$main.Current.NativeWindowHandle) | Out-Null
     }
+
     for ($w = 0; $w -lt 12; $w++) {
         Start-Sleep -Milliseconds 700
         if (-not (Get-PadProcess)) { break }
@@ -142,6 +218,13 @@ while ($sw.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
         continue
     }
 
+    # Any other modal keeps the file argument from being processed; answer it and
+    # keep polling rather than waiting out the timeout.
+    if (@(Clear-PadModals -ProcessId $proc.Id ).Count -gt 0) {
+        Start-Sleep -Milliseconds 700
+        continue
+    }
+
     $title = $main.Current.Name
     if ($title -like "*$leaf*") { $loaded = $true; break }
     if ($title -match 'Abnormal Termination|Recover') {
@@ -151,6 +234,7 @@ while ($sw.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
             Title           = $title
             PromptDismissed = ($promptCount -gt 0)
             PromptCount     = $promptCount
+            Modals          = @($script:ModalLog)
             ElapsedSeconds  = [math]::Round($sw.Elapsed.TotalSeconds, 1)
             Message         = 'VideoPad showed a crash-recovery dialog. Close it (choose to discard) and retry.'
         }
@@ -170,6 +254,7 @@ if ($loaded) {
     Title           = $title
     PromptDismissed = ($promptCount -gt 0)
     PromptCount     = $promptCount
+    Modals          = @($script:ModalLog)
     ElapsedSeconds  = [math]::Round($sw.Elapsed.TotalSeconds, 1)
     Message         = $msg
 }

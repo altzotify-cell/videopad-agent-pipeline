@@ -46,6 +46,7 @@ Write-Log ("autosave pre: {0:HH:mm:ss}" -f $before)
 
 $r = & (Join-Path $PSScriptRoot 'Open-Project.ps1') -ProjectPath $Project -TimeoutSeconds 45
 Write-Log ("open        : Loaded={0} prompts={1} in {2}s" -f $r.Loaded, $r.PromptCount, $r.ElapsedSeconds)
+if (@($r.Modals).Count -gt 0) { Write-Log ("modals      : {0}" -f (@($r.Modals) -join '; ')) }
 Write-Log ("title       : {0}" -f $r.Title)
 
 $sw = [System.Diagnostics.Stopwatch]::StartNew()

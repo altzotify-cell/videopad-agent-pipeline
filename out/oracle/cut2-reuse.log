@@ -1,0 +1,12 @@
+=== autosave watcher ===
+[22:53:20] target      : C:\Users\user\Downloads\videopad\out\cut2-reuse.vpj
+[22:53:20] autosave pre: 22:53:10
+[22:53:28] open        : Loaded=True prompts=1 in 4.5s
+[22:53:28] title       : VideoPad Professional by NCH Software - cut2-reuse.vpj - Licensed to user
+[22:53:31] autosave new: 22:53:30 (after 3s)
+[22:53:31] sequence    : Reuse%20Test
+[22:53:31] status      : parsed a sequence name
+[22:53:31] checksum    : efc0a12ec327c26e9e34986ac958c428de9d1045fa58f3bc5aa1775672b40255
+[22:53:31] hindex      : 3740
+[22:53:31] capture     : C:\Users\user\Downloads\videopad\out\oracle\cut2-reuse.roundtrip.vpj
+=== done ===

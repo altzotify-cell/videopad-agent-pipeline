@@ -12,6 +12,10 @@ reg_backup_registration.reg
 out/frames/
 *.gray
 
+# Scratch media synthesised with ffmpeg for the "add media" example (see
+# docs/HANDOFF.md); it is regenerated on demand, not checked in
+out/testmedia/
+
 # OS cruft
 Thumbs.db
 desktop.ini

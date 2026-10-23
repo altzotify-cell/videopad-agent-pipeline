@@ -1,6 +1,6 @@
 {
-    "template":  "C:\\Users\\user\\Documents\\probe.vpj",
-    "output":  "C:\\Users\\user\\Downloads\\videopad\\out\\cut1.vpj",
+    "template":  "probe.vpj",
+    "output":  "../out/cut1.vpj",
     "sequenceName":  "Agent Cut",
     "segments":  [
                      {
@@ -15,3 +15,4 @@
                      }
                  ]
 }
+
