@@ -39,12 +39,15 @@ the command.
 .\tools\Test-Examples.ps1
 ```
 
-You will see five little blocks like `Spec : cut1.json ... Result : identical`,
+You will see eight little blocks like `Spec : cut1.json ... Result : identical`,
 and then, as the last line:
 
 ```
-All 5 example(s) reproduced byte-identically.
+All 8 example(s) reproduced byte-identically.
 ```
+
+(The count follows whatever is in `examples/` — add your own spec and it becomes
+`All 9 example(s)…`.)
 
 **That is the whole health check.** If that line appears, the editing engine works
 and you can trust everything after it. If you get red text instead, stop.

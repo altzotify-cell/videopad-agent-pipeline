@@ -69,7 +69,7 @@ The second command rebuilds every example in `examples/` and compares the output
 to the file committed in `out/`. It prints:
 
 ```
-All 5 example(s) reproduced byte-identically.
+All 8 example(s) reproduced byte-identically.
 ```
 
 That sentence is the thing to care about: it means the recipe→project step is
@@ -104,7 +104,7 @@ whole thing trustworthy:
 
 1. **Is the project file stable?** Build the same recipe twice, compare the bytes.
    Identical means the writer is deterministic — `Test-Examples.ps1` says
-   "byte-identically" for all 5 examples.
+   "byte-identically" for all 8 examples.
 2. **Did VideoPad understand the file?** Open it in the app, make the app save its
    own copy, then diff the two. Only a handful of fields differ (thumbnail cache
    and the like), which means the app read what was written rather than silently
@@ -144,7 +144,7 @@ Straight answers, no hedging:
 |---|---|
 | **transitions** (crossfades, wipes) | clips butt up against each other; a fade to black is possible, a crossfade is not |
 | **titles / text** | the Add Text button is not automated; put text on in your editor afterwards |
-| **audio volume / pan** | clips play at their recorded level; per-clip volume has no known field yet |
+| **audio volume / pan** | per-clip volume works in dB (`audioGainDb`, attenuation only) and clips can have their sound faded (`audioFadeIn`/`audioFadeOut`); panning does not, and there is no second audio track for music |
 | **silent video** | a source with no audio track is refused, not silently mishandled |
 | **more than one video track, or a second sequence** | one video track, one audio track, one sequence |
 | **choosing the export preset** | it uses whatever the project says (1080p mp4); no "pick 720p" step |
