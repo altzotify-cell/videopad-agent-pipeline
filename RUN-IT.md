@@ -199,6 +199,7 @@ the two commands from steps 4 and 5, using your own file names.
 | `cannot be loaded because running scripts is disabled` | Windows is blocking scripts | run `powershell -ExecutionPolicy Bypass -File .\tools\Test-Examples.ps1` instead |
 | VideoPad opens but the title says **Untitled** | another VideoPad beat it to the file | close all VideoPad windows, run step 4 again |
 | `Export dialog did not appear` | something is covering VideoPad, so the fake clicks missed | bring VideoPad to the front, then run step 5 again |
+| VideoPad asks **"Did VideoPad hang or crash when last run?"** | something force-killed the app (an editor timeout counts) | click **Something Else** — it was not a real crash — then run the step again |
 | red text mentioning `Spec not found` | typo in the file name you passed | check the path after `-Spec` |
 | nothing seems to happen for minutes | it's encoding a long video | wait; check `out\` for a growing mp4 |
 

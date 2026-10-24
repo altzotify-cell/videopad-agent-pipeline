@@ -192,6 +192,19 @@ of the frame and reflects it onto the right — a "half mirror". Measured agains
 `bars@4.0`: half-mirrored MAE 1.67, unflipped 53.99, hflip 53.98, vflip 58.36.
 Worth knowing before writing a `mirror` slot and expecting a flip.
 
+**Flip is effect 69, and its two axes are independent.** `horzflip` and
+`vertflip` are separate keyframe-wrapped bools, so one slot can do a 180° turn
+(`horzflip=1&vertflip=1`) without stacking mirrors. Verified on the export of
+`out/cut6-flip.vpj` (`out/oracle/cut6-verify.ps1`): the horizontal clip sits 2.37
+MAE from its own L-R mirror and 106.42 from the unflipped source, the vertical
+clip 2.41 from its T-B mirror and 105.55 from hflip, and a `flip: "none"` control
+clip 1.93 from unflipped / 106.94 from hflip. That last row is what makes the
+others mean something — the metric demonstrably separates flipped from unflipped
+on this source, so a low score against the expected flip is evidence, not
+coincidence. It also confirms the slots really apply at render time, not just in
+the file: the writer's promise is bytes, but a flip is only useful if the encoder
+honours it.
+
 **Effect 28 is video opacity, not audio volume.** It was applied to the *audio*
 chain of two probe clips (one static `value=25`, one keyframed fade in/out): both
 survived the round-trip byte-for-byte and neither changed the rendered audio

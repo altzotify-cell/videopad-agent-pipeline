@@ -1,0 +1,11 @@
+﻿{
+    "OutputPath":  "C:\\Users\\user\\Downloads\\videopad\\out\\cut6-flip.mp4",
+    "SizeBytes":  2285251,
+    "DurationSeconds":  12.01,
+    "DurationMs":  12010,
+    "ExpectedDurationMs":  12000,
+    "DurationDeltaMs":  10,
+    "SourceFile":  "C:\\Users\\user\\Videos\\Flip Test 1.mp4",
+    "Verified":  true,
+    "Message":  "Exported; duration within one frame of the expected 12000 ms."
+}

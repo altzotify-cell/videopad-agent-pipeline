@@ -543,6 +543,55 @@ of project is written.
   chain survives the round-trip and is silently ignored at render time: it is
   video opacity. This is why `fadeIn`/`fadeOut` are documented as picture fades.
 
+### v5 evidence (flip / lateral inversion)
+
+Spec `examples/cut6-flip.json` → `out/cut6-flip.vpj`: 12 000 ms, 5 clips from one
+6 s asymmetric source (`out/testmedia/asym.mp4`, 640×360) covering all four values
+of the new segment key.
+
+| timeline (ms) | written as | why |
+|---|---|---|
+| 0–3 000 | `type0=69`, `horzflip=value=1`, `vertflip=value=0` | lateral inversion |
+| 3 000–6 000 | `horzflip=value=0`, `vertflip=value=1` | upside down |
+| 6 000–9 000 | the `both` slot on **both** halves of `split: [1500]` | the key is inherited like `effects`/`fadeIn` |
+| 9 000–12 000 | `flip: "none"` → `size=0` chain | the no-op is expressible, and is the control |
+
+**Oracle — export** `out/cut6-flip.mp4`: 12.010 s vs 12 000 (Δ 10 ms),
+2 285 251 bytes, SHA256 `F8C8C0B0…2B903A`. Every number below is reproduced by
+`out/oracle/cut6-verify.ps1` (output in `cut6-verify.txt`) — 32×32 greyscale MAE
+against `asym` frames flipped with ffmpeg, the same method as `cut4`/`cut5`:
+
+| clip | vs expected flip | vs hflip | vs vflip | vs h+v | vs unflipped |
+|---|---|---|---|---|---|
+| horizontal | **2.37** | 2.37 | 105.56 | 8.82 | 106.42 |
+| vertical | **2.41** | 105.55 | 2.41 | 106.40 | 8.82 |
+| both (6.75 s) | **0.67** | 8.56 | 106.22 | 0.67 | 106.22 |
+| both (8.25 s) | **3.01** | 9.43 | 105.43 | 3.01 | 105.48 |
+| none (10.5 s) | **1.93** | 106.94 | 8.59 | 106.08 | 1.93 |
+
+Reading: the horizontal clip is 2.37 away from its own L-R mirror and 106 from
+the unflipped source, so those pixels really are inverted left-right; the vertical
+clip is the transpose of that result (2.41 vs its T-B mirror, 106 vs hflip); both
+halves of the split pair match h+v, so the key survived the split; and `none`
+sits at 1.93 against the unflipped source and 107 against hflip — the control that
+says the metric can tell the difference at all.
+
+Caveat worth keeping: `asym.mp4` is strongly L-R asymmetric (≈106 between a frame
+and its mirror) but nearly T-B symmetric (≈8.6), so the horizontal claim is the one
+this source proves hard; the vertical claim rests on *which* reference it matches
+(2.41 vs 105.55), not on its distance from unflipped.
+
+**Guard rail, exercised:** `"flip": "sideways"` fails with *\"Segment 1 for source
+'asym' has flip 'sideways'; expected horizontal (left<->right), vertical
+(top<->bottom), both, or none.\"* and no project file is written.
+
+**Why a key and not an effect:** effect 69 (`flip`) was already in
+`tools/effects.json`, so nothing *new* is possible that wasn't before — the change
+is that a spec no longer has to discover that `{ "name": "mirror" }` defaults to
+`mirrordirection=0` (a half mirror) and that `mirrordirection=1` is the actual
+flip. `flip` says which way the picture ends up, and the two axes are independent,
+so `both` (180°/point symmetry) is expressible in one slot.
+
 ## 10. What is NOT supported yet (and the shape of the fix)
 
 **Writer — still needs records this writer does not model:**
@@ -601,8 +650,13 @@ and removal of the records belonging to dropped clips.
   Round-tripped (`out/oracle/cut5-cadence.roundtrip.vpj`, only the thumbnail
   cache differs) and exported to `out/cut5-cadence.mp4` (2.25 MB, Δ 34 ms),
   verified by burnt-in timecode + luma ramps (§8).
-- `tools/Test-Examples.ps1` reports **all 5 examples byte-identical** (the v4
-  writer still reproduces `cut1`/`cut2`/`cut3`/`cut4` exactly), so v4 is a superset.
+- `out/cut6-flip.vpj` — v5 flip: 12 000 ms, 5 clips (horizontal, vertical, `both`
+  split in two, `none` as the control), 4 slots of effect 69. Exported to
+  `out/cut6-flip.mp4` (2.29 MB, Δ 10 ms) and verified by frame MAE against
+  ffmpeg-flipped source frames (§8, v5 evidence).
+- `tools/Test-Examples.ps1` reports **all 7 specs byte-identical** in 2.6 s (the v5
+  writer still reproduces `cut1`…`cut5` exactly, plus `cut6` and the local-only
+  `yourclip-copyright-safe.json`), so v5 is a superset.
 - All `tools/*.ps1` and the `out/oracle/**/*.ps1` helpers parse clean (AST check).
 - VideoPad is **left running**; `Open-Project.ps1` now clears stale modals first,
   so the next run does not get stuck on a "Save changes?" prompt.

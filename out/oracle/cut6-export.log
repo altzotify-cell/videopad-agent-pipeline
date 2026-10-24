@@ -1,0 +1,16 @@
+[02:05:06] Opening project C:\Users\user\Downloads\videopad\out\cut6-flip.vpj
+[02:05:15] Project loaded: VideoPad Professional by NCH Software - cut6-flip.vpj - Licensed to user
+[02:05:17] Editor window 9962892 at 192,101 1536x817
+[02:05:17] Watching C:\Users\user\Videos (2 existing .mp4)
+[02:05:18] Ribbon: Home tab
+[02:05:19] Ribbon: Export Video
+[02:05:20] Ribbon: Video File
+[02:05:22] Waiting for the export dialog (Create button)
+[02:05:22] Export dialog is up; activating Create (8652342)
+[02:05:28] Encoding to Flip Test 1.mp4
+[02:05:33]   2,285,251 bytes, duration 12.010s
+[02:05:37]   2,285,251 bytes, duration 12.010s, stable 1/2
+[02:05:41]   2,285,251 bytes, duration 12.010s, stable 2/2
+[02:05:41] Dismissing completion dialog (Close)
+[02:05:42] Moved to C:\Users\user\Downloads\videopad\out\cut6-flip.mp4 (2,285,251 bytes)
+[02:05:42] Exported; duration within one frame of the expected 12000 ms.

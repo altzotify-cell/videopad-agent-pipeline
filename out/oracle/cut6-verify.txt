@@ -1,0 +1,11 @@
+﻿
+Clip                as expected  hflip  vflip h+v flip unflipped
+----                -----------  -----  ----- -------- ---------
+horizontal, clip 1         2.37   2.37 105.56     8.82    106.42
+vertical,   clip 2         2.41 105.55   2.41    106.4      8.82
+both,       clip 3a        0.67   8.56 106.22     0.67    106.22
+both,       clip 3b        3.01   9.43 105.43     3.01    105.48
+none,       clip 4         1.93 106.94   8.59   106.08      1.93
+
+
+
