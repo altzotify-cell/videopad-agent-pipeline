@@ -211,6 +211,22 @@ survived the round-trip byte-for-byte and neither changed the rendered audio
 (mean volume −3.4 dB in every segment, fade included). Per-clip audio is
 therefore still unwritten — see "Still open".
 
+**Audio effects live in the audio record's chain, and effect 1001 (Amplify)
+works.** Writing `size=1&type0=1001&data0=amplify=value=<n>` into the chain whose
+`hclip=` is the *audio* handle of the pair changes the rendered level, which no
+video-chain trick ever did. The slider value is a dB control, not a percentage:
+100 is unity and the level falls 0.4816 dB per unit, measured on
+`out/oracle/v5-probe/audio-ladder` at 25 / 50 / 75 / 100 → −36.1 / −24.0 / −12.1
+/ 0 dB. So `value = 100 + 2.0761 × dB`, and the writer's spec key is
+`audioGainDb` rather than a percent.
+
+**The exporter normalises peaks to full scale, so gain cannot go up.** The same
+12 s probe exported 125, 150 and 200 at +0.1 / 0 / +0.1 dB against 100 — a hard
+ceiling. A project with no audio effect at all measures −3.2 dB mean where its
+source measures −21.1, i.e. a +17.9 dB lift with peaks on 0 dBFS. Consequences:
+`audioGainDb` refuses positive values, and *any* export of a quiet source comes
+back hot — worth knowing before mastering anything through this pipeline.
+
 ## The autosave oracle — verify an edit without exporting
 
 `%APPDATA%\NCH Software\VideoPad\autosave.vpj` is rewritten roughly **3 seconds

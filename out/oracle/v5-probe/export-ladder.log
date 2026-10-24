@@ -1,0 +1,16 @@
+[02:12:29] Opening project C:\Users\user\Downloads\videopad\out\oracle\v5-probe\audio-ladder.vpj
+[02:12:38] Project loaded: VideoPad Professional by NCH Software - audio-ladder.vpj - Licensed to user
+[02:12:40] Editor window 4655552 at 192,101 1536x817
+[02:12:40] Watching C:\Users\user\Videos (2 existing .mp4)
+[02:12:41] Ribbon: Home tab
+[02:12:42] Ribbon: Export Video
+[02:12:43] Ribbon: Video File
+[02:12:45] Waiting for the export dialog (Create button)
+[02:12:45] Export dialog is up; activating Create (8653070)
+[02:12:51] Encoding to Audio Ladder.mp4
+[02:12:55]   1,125,989 bytes, duration 12.028s
+[02:12:59]   1,125,989 bytes, duration 12.028s, stable 1/2
+[02:13:04]   1,125,989 bytes, duration 12.028s, stable 2/2
+[02:13:04] Dismissing completion dialog (Close)
+[02:13:04] Moved to C:\Users\user\Downloads\videopad\out\oracle\v5-probe\audio-ladder.mp4 (1,125,989 bytes)
+[02:13:04] Exported; duration within one frame of the expected 12000 ms.

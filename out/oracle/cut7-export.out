@@ -1,0 +1,11 @@
+﻿{
+    "OutputPath":  "C:\\Users\\user\\Downloads\\videopad\\out\\cut7-audio.mp4",
+    "SizeBytes":  1262526,
+    "DurationSeconds":  12.028,
+    "DurationMs":  12028,
+    "ExpectedDurationMs":  12000,
+    "DurationDeltaMs":  28,
+    "SourceFile":  "C:\\Users\\user\\Videos\\Audio Gain Test.mp4",
+    "Verified":  true,
+    "Message":  "Exported; duration within one frame of the expected 12000 ms."
+}

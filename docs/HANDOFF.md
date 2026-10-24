@@ -592,6 +592,59 @@ is that a spec no longer has to discover that `{ "name": "mirror" }` defaults to
 flip. `flip` says which way the picture ends up, and the two axes are independent,
 so `both` (180°/point symmetry) is expressible in one slot.
 
+### v6 evidence (per-clip audio gain)
+
+Spec `examples/cut7-audio.json` → `out/cut7-audio.vpj`: 12 000 ms, 5 clips —
+0 dB, −6 dB, −12 dB split in two, then `mute`.
+
+| timeline (ms) | written as | why |
+|---|---|---|
+| 0–3 000 | audio record `size=1&type0=1001&data0=amplify=value=100.000000` | unity |
+| 3 000–6 000 | `…value=87.543` | 100 + 2.0761 × (−6) |
+| 6 000–9 000 | `…value=75.087` on **both** halves | −12 dB, inherited by the split |
+| 9 000–12 000 | `mute=1`, audio chain `size=0` | the existing off switch |
+
+**The units came first.** VideoPad's Amplify slider is not a percentage, so one
+12 s probe export (`out/oracle/v5-probe/audio-ladder`) carried the slider at
+0 / 25 / 50 / 75 / 100 / 125 / 150 / 200 and measured each:
+
+| slider | 0 | 25 | 50 | 75 | 100 | 125 | 150 | 200 |
+|---|---|---|---|---|---|---|---|---|
+| mean dB vs 100 | silent | −36.1 | −24.0 | −12.1 | 0 | +0.1 | 0 | +0.1 |
+
+That is a dB control: **0.4816 dB per unit**, 12.5 units per 6 dB, i.e.
+`value = 100 + 2.0761 × dB`. A percentage would have put 50 at −6 dB; it is at
+−24. My first cut of this feature wrote percent straight into the slider and was
+wrong by 18 dB — the numbers, not the reasoning, caught it.
+
+**Boosts do not exist in this pipeline.** 125, 150 and 200 are indistinguishable
+from 100 because the exporter normalises peaks to full scale: a project with *no*
+audio effect at all exports at −3.2 dB mean against a source that measures
+−21.1 (a +17.9 dB lift), so the peaks already sit on 0 dBFS and more gain only
+clips. That is why `audioGainDb` rejects positive values instead of pretending.
+
+**Oracle — export** `out/cut7-audio.mp4`: 12.028 s vs 12 000 (Δ 28 ms),
+1 262 526 bytes, SHA256 `DA65EAB6…890CEC`. Reproduced by
+`out/oracle/cut7-verify.ps1` (`cut7-verify.txt`), `volumedetect` over 0.6–1 s
+windows:
+
+| clip | mean dB | vs control | asked |
+|---|---|---|---|
+| 0 dB (control) | −3.2 | 0 | 0 |
+| −6 dB | −9.3 | **−6.1** | −6 |
+| −12 dB | −15.2 | **−12.0** | −12 |
+| −12 dB, second half | −16.1 | −12.9 | −12 |
+| `mute` | −91 | −87.8 | silence |
+
+The remaining 0.1–0.9 dB is content, not conversion: the two halves of the −12 dB
+clip are different 1.5 s of source, and a 32×32-style window mean is not a
+loudness meter.
+
+**Guard rails, exercised:** `audioGainDb: 3` → *"only attenuation is meaningful
+… slider 125, 150 and 200 are all 0 dB against 100"*; `-99` → *"below the range
+this writer accepts"*; `"loud"` → *"not a number of decibels"*; `0` and `-6`
+build normally.
+
 ## 10. What is NOT supported yet (and the shape of the fix)
 
 **Writer — still needs records this writer does not model:**
@@ -599,12 +652,13 @@ so `both` (180°/point symmetry) is expressible in one slot.
 - **transitions** between clips (`transitions` section — not even inventoried yet),
 - **titles** (the `Type=2SubtitlesExport=1` quirk is in every file, but no title
   record has been authored),
-- **audio effects / mixing** — only the video chain is written; an audio clip keeps
-  the empty default chain. Four candidates for per-clip volume were tested and
-  three are dead ends (`voll`/`volr` inert, effectchains `fadepoints` inert at
-  render time, effect 28 is video opacity — see §8 v4 evidence). The real surface
-  is the Audio tab / "Audio Effects" button, not yet captured. The **track**
-  records do carry `volume=100&pan=0`, which is the cheapest next target.
+- **audio effects / mixing** — per-clip *level* is written now (`audioGainDb`,
+  effect 1001, §8 v6) and `mute` was already there, but that is all: no pan, no
+  audio fades or keyframed gain (effect 1001's own Fade In / Fade Out presets are
+  keyframed blobs this writer still refuses to author), and no second audio track,
+  so no music bed and no ducking. `voll`/`volr` and effectchains `fadepoints` stay
+  dead ends (§8 v4). The **track** records carry `volume=100&pan=0`, which is
+  where pan would start.
 - **keyframed effect parameters** — the writer now *authors* keyframes for fades,
   but still refuses to merge an override into a group that already has `keys!=0`,
 - adding media **without an audio stream** — added media is written as a
@@ -654,15 +708,24 @@ and removal of the records belonging to dropped clips.
   split in two, `none` as the control), 4 slots of effect 69. Exported to
   `out/cut6-flip.mp4` (2.29 MB, Δ 10 ms) and verified by frame MAE against
   ffmpeg-flipped source frames (§8, v5 evidence).
-- `tools/Test-Examples.ps1` reports **all 7 specs byte-identical** in 2.6 s (the v5
-  writer still reproduces `cut1`…`cut5` exactly, plus `cut6` and the local-only
-  `yourclip-copyright-safe.json`), so v5 is a superset.
+- `out/cut7-audio.vpj` — v6 audio gain: 12 000 ms, 5 clips (0, −6, −12 dB with a
+  split, then mute), 4 audio slots of effect 1001. Exported to
+  `out/cut7-audio.mp4` (1.26 MB, Δ 28 ms) and verified with `volumedetect`
+  (§8, v6 evidence).
+- `tools/Test-Examples.ps1` reports **all 8 specs byte-identical** (the v6 writer
+  still reproduces `cut1`…`cut6` exactly, plus the local-only
+  `yourclip-copyright-safe.json`), so v6 is a superset.
 - All `tools/*.ps1` and the `out/oracle/**/*.ps1` helpers parse clean (AST check).
 - VideoPad is **left running**; `Open-Project.ps1` now clears stale modals first,
   so the next run does not get stuck on a "Save changes?" prompt.
 - The user's `Videos` folder is clean again — VideoPad writes there by default
   when the project's `Computer_FilePath` points there, and
-  `Export-Project.ps1` moves the file out afterwards.
+  `Export-Project.ps1` moves the file out afterwards. If an `out\*.mp4` ever goes
+  missing, check `Videos` first (an interrupted run can leave the only copy
+  there) and then check for a PowerShell alias collision: a helper function named
+  `MV` silently resolves to `Move-Item`, which is how `out/cut6-flip.mp4` was
+  once renamed to a stray file called `0.5`. Both copies hashed
+  `F8C8C0B0…2B903A`, so two renders of one recipe are byte-identical.
 
 ## 12. Bootstrap prompt for a new session
 

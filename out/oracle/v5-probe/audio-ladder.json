@@ -1,0 +1,19 @@
+﻿{
+    "template": "../../../examples/probe.vpj",
+    "output": "./audio-ladder.vpj",
+    "sequenceName": "Audio Ladder",
+    "media": [
+        { "id": "asym", "path": "../../../out/testmedia/asym.mp4" }
+    ],
+    "segments": [
+        { "source": "asym", "start": 0, "end": 1500, "audioGain": 0 },
+        { "source": "asym", "start": 0, "end": 1500, "audioGain": 25 },
+        { "source": "asym", "start": 0, "end": 1500, "audioGain": 50 },
+        { "source": "asym", "start": 0, "end": 1500, "audioGain": 75 },
+        { "source": "asym", "start": 0, "end": 1500, "audioGain": 100 },
+        { "source": "asym", "start": 0, "end": 1500, "audioGain": 125 },
+        { "source": "asym", "start": 0, "end": 1500, "audioGain": 150 },
+        { "source": "asym", "start": 0, "end": 1500, "audioGain": 200 }
+    ]
+}
+

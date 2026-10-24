@@ -1,0 +1,16 @@
+[02:14:36] Opening project C:\Users\user\Downloads\videopad\out\cut7-audio.vpj
+[02:14:46] Project loaded: VideoPad Professional by NCH Software - cut7-audio.vpj - Licensed to user
+[02:14:48] Editor window 1247712 at 192,101 1536x817
+[02:14:48] Watching C:\Users\user\Videos (2 existing .mp4)
+[02:14:49] Ribbon: Home tab
+[02:14:50] Ribbon: Export Video
+[02:14:51] Ribbon: Video File
+[02:14:53] Waiting for the export dialog (Create button)
+[02:14:53] Export dialog is up; activating Create (5244214)
+[02:14:59] Encoding to Audio Gain Test.mp4
+[02:15:03]   1,262,526 bytes, duration 12.028s
+[02:15:08]   1,262,526 bytes, duration 12.028s, stable 1/2
+[02:15:12]   1,262,526 bytes, duration 12.028s, stable 2/2
+[02:15:12] Dismissing completion dialog (Close)
+[02:15:13] Moved to C:\Users\user\Downloads\videopad\out\cut7-audio.mp4 (1,262,526 bytes)
+[02:15:13] Exported; duration within one frame of the expected 12000 ms.
