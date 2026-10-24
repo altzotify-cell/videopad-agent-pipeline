@@ -42,7 +42,7 @@ Optional per cut, when you want more than a straight cut:
 | `audioGainDb` | change one clip's volume, in dB (attenuation only) | `-6` = half amplitude; boosts are refused because the exporter already normalises to full scale |
 | `audioFadeIn` / `audioFadeOut` | fade this clip's own sound (ms) | `400` — separate from `fadeIn`/`fadeOut`, which fade the picture |
 | `fadeIn` / `fadeOut` | fade the picture (ms) | `250` |
-| `effects` | video effect, names from `tools/effects.json` | `[{ "name": "mirror" }]` |
+| `effects` | video effect with optional fine-tuning, names and parameter keys from `tools/effects.json` | `[{ "name": "noise", "params": { "intensity": 30, "coverage": 60 } }]` — out-of-range values are refused, not clamped |
 | `mute` | silence this cut | `true` |
 | `media` | introduce a new file to cut from | `[{ "id": "bars", "path": "…" }]` |
 
@@ -69,7 +69,7 @@ The second command rebuilds every example in `examples/` and compares the output
 to the file committed in `out/`. It prints:
 
 ```
-All 8 example(s) reproduced byte-identically.
+All 9 example(s) reproduced byte-identically.
 ```
 
 That sentence is the thing to care about: it means the recipe→project step is
@@ -104,7 +104,7 @@ whole thing trustworthy:
 
 1. **Is the project file stable?** Build the same recipe twice, compare the bytes.
    Identical means the writer is deterministic — `Test-Examples.ps1` says
-   "byte-identically" for all 8 examples.
+   "byte-identically" for all 9 examples.
 2. **Did VideoPad understand the file?** Open it in the app, make the app save its
    own copy, then diff the two. Only a handful of fields differ (thumbnail cache
    and the like), which means the app read what was written rather than silently

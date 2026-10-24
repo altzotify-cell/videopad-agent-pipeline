@@ -1,0 +1,11 @@
+﻿{
+    "OutputPath":  "C:\\Users\\user\\Downloads\\videopad\\out\\cut9-filters.mp4",
+    "SizeBytes":  43137643,
+    "DurationSeconds":  20.016,
+    "DurationMs":  20016,
+    "ExpectedDurationMs":  20000,
+    "DurationDeltaMs":  16,
+    "SourceFile":  "C:\\Users\\user\\Videos\\Filters Test.mp4",
+    "Verified":  true,
+    "Message":  "Exported; duration within one frame of the expected 20000 ms."
+}

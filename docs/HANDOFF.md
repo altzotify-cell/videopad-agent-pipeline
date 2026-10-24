@@ -24,7 +24,7 @@ renderer, and the agent only supplies a project file plus a click.
 |---|---|---|
 | Can a tool write a `.vpj` VideoPad will open and honour? | **Yes, proven** | `.vpj` is plain-text LF-terminated sectioned querystrings; a stale checksum only raises a "Damaged File" prompt that is auto-answerable |
 | Can VideoPad be made to *export* that project unattended? | **Yes, proven** | ribbon coordinate clicks + `BM_CLICK` on the export dialog's `Create` button; output verified frame-by-frame |
-| Can an agent perform *arbitrary* edits? | **Partly — v4** | the writer renames, trims, reorders, **reuses a source any number of times**, adds and removes clips, **adds new media files**, mutes segments, **splits a clip at arbitrary cut points**, writes **per-segment video effect chains** registered in `tools/effects.json`, and now **changes playback speed and fades clips in/out**. Not yet: transitions, titles, audio mixing. See §9 |
+| Can an agent perform *arbitrary* edits? | **Partly — v8** | the writer renames, trims, reorders, **reuses a source any number of times**, adds and removes clips, **adds new media files**, mutes segments, **splits a clip at arbitrary cut points**, writes **per-segment video effect chains** registered in `tools/effects.json` — including the **style filters `blur`/`noise` with every parameter fine-tuned and range-checked** — and **changes playback speed, fades clips in/out, flips them, sets per-clip audio gain and audio fades**. Not yet: transitions, titles, audio mixing, and the `Cartoon` effect (ships in the app, id not yet captured). See §9 |
 
 So: **the loop closes today for a cut** *and* for structural edits that only add
 or remove timeline clips and bin media, *and* for split + effect chains, *and* for
@@ -689,6 +689,84 @@ that is linear in dB, which many editors offer, would need many keyframes.
 length"*; 2000+2000 ms on a 3000 ms clip → *"fades audio 2000+2000 ms but the
 clip is only 3000 ms long"*.
 
+### v8 evidence (style filters, fine-tuned)
+
+Spec `examples/cut9-filters.json` → `out/cut9-filters.vpj`: 20 000 ms, 10 clips
+of 2 s from `bars.mp4`, all starting at **source 0** — so every clip paints the
+same frame at the probe point and any difference between clips *is* the effect.
+
+| timeline (ms) | chain | what it isolates |
+|---|---|---|
+| 0–2 000 | none | control |
+| 2–4 000 | `blur 25` | intensity, gentle |
+| 4–6 000 | `blur 100` | intensity, maximum single slot |
+| 6–8 000 | `blur 100` + `blur 100` | **two slots of the same effect** |
+| 8–10 000 | `noise 80` | intensity, with default saturation/coverage |
+| 10–12 000 | `noise 80, sat 100` | saturation |
+| 12–14 000 | `noise 80, cov 50` | coverage |
+| 14–16 000 | `noise 80, cov 10` | coverage |
+| 16–18 000 | `noise 20` | intensity, low |
+| 18–20 000 | `blur 40` + `noise 30, cov 60` | chain order (blur first) |
+
+**Oracle — export** `out/cut9-filters.mp4`: 20.016 s vs 20 000 (Δ 16 ms),
+43 137 643 bytes — 17× the size of `cut8`, which is the grain refusing to
+compress. `out/oracle/cut9-verify.ps1` (`cut9-verify.out`) probes 1 s into each
+clip, compares against the control clip of the same export (so encode error and
+source are held constant) and against the source frame:
+
+| clip | detail mean | edge peak (p99.5) | MAE vs control |
+|---|---|---|---|
+| control | 1.374 | 49.2 | 0 |
+| `blur 25` | 1.324 | 48.5 | 2.20 |
+| `blur 100` | 1.312 | 48.5 | 4.81 |
+| `blur 100` ×2 slots | 1.272 | 47.2 | 8.06 |
+| `noise 80` | 53.889 | 148.2 | 63.70 |
+| `noise 80, sat 100` | 39.170 | 119.0 | 55.47 |
+| `noise 80, cov 50` | 41.176 | 151.0 | 32.81 |
+| `noise 80, cov 10` | 13.056 | 139.2 | 8.01 |
+| `noise 20` | 13.146 | 42.8 | 15.70 |
+| `blur 40` + `noise 30, cov 60` | 16.910 | 57.2 | 16.40 |
+
+**Blur is a soft focus, not an obscurer.** `intensity` is monotonic (2.20 →
+4.81 MAE) and *stackable* — a second identical slot doubles it to 8.06 — but one
+slot at 100 leaves mean detail at 1.312 against the control's 1.374 and the
+hardest edges untouched (49.2 → 48.5). Both frames look almost identical to the
+eye (`out/cut9-control.png` vs `out/cut9-blur100.png`). For anything that needs
+detail actually gone, `pixelate` is the tool; blur is for softening.
+
+**Noise intensity is the real knob:** 20 → MAE 15.70, 80 → 63.70, with mean
+detail up 39×. It is the only effect here that changes a picture beyond
+recognition at mid-range.
+
+**`saturation` is not "how colourful the grain is" — at its default 0 the picture
+loses its colour.** Chroma (mean |U−128|, |V−128|) reads 72.4 / 71.3 on the
+control, **14.5 / 14.1** at `noise 80` with saturation 0 (i.e. the frame is
+nearly monochrome, confirmed by eye: `cut9-noise80.png`), and 16.6 / 16.5 with
+saturation 100 — while luma detail *drops* 53.9 → 39.2. The noise budget is
+shared: asking for colour grain takes it out of the luminance grain.
+
+**`coverage` is the fraction of pixels speckled, scattered across the whole
+frame — not a region.** Fraction of pixels that moved more than 8 luma units:
+**0.913 / 0.463 / 0.101** for coverage 100 / 50 / 10, against 0.913 for the
+default 100. At coverage 10 the picture is intact and colourful under sparse
+white speckle (`cut9-noise80cov10.png`) — which is why a per-tile detail test
+misread it as full coverage first time round, and why the oracle counts moved
+pixels instead.
+
+**Range validation (new in the writer).** Numeric parameters are now checked
+against the schema's `min`/`max` before anything is written: `blur` at
+`intensity: 150` fails with *"Effect 'blur' parameter 'intensity' got 150; the
+range is 0..100."* Previously the value was written and VideoPad clamped it
+silently, which looks identical to a radius that simply does not work.
+
+**Not catalogued: Cartoon.** VideoPad 8.91 ships it — `Video Effect - Cartoon`
+is in `videopad.exe`'s string table — but its effect id and default blob are
+unknown, so it cannot be named in a spec yet. Shape of the fix: apply it once in
+the app, let `Watch-Autosave.ps1` capture VideoPad's own re-serialisation, then
+add the id + parameter schema to `tools/effects.json` exactly as the other 15
+entries were added.
+
+
 ## 10. What is NOT supported yet (and the shape of the fix)
 
 **Writer — still needs records this writer does not model:**
@@ -702,6 +780,12 @@ clip is only 3000 ms long"*.
   registry but uncatalogued here), and no second audio track, so no music bed and
   no ducking. `voll`/`volr` and effectchains `fadepoints` stay dead ends (§8 v4).
   The **track** records carry `volume=100&pan=0`, which is where pan would start.
+- **`Cartoon` and the rest of the style-effect catalogue** — `blur` and `noise`
+  are catalogued, characterised and range-checked (§8 v8), but VideoPad ships many
+  more (Cartoon, Dots, Night Vision, Glow, Vignette, …) whose ids and default
+  blobs are not captured. Each needs one manual apply in the app so
+  `Watch-Autosave.ps1` can record the id + blob, after which it is a
+  `tools/effects.json` entry like any other,
 - **keyframed effect parameters** — the writer now *authors* keyframes for fades,
   but still refuses to merge an override into a group that already has `keys!=0`,
 - adding media **without an audio stream** — added media is written as a
@@ -759,9 +843,15 @@ and removal of the records belonging to dropped clips.
   `audioFadeIn 800`, `audioFadeOut 800`, `-6 dB` with 500/500), 3 keyframed audio
   slots. Exported to `out/cut8-audiofade.mp4` (1.23 MB, Δ 28 ms) and verified by
   windowed `volumedetect` (§8, v7 evidence).
-- `tools/Test-Examples.ps1` reports **all 9 specs byte-identical** (the v7 writer
-  still reproduces `cut1`…`cut7` exactly, plus the local-only
-  `yourclip-copyright-safe.json`), so v7 is a superset.
+- `out/cut9-filters.vpj` — v8 filters: 20 000 ms, 10 clips of 2 s from
+  `bars.mp4` (control, blur 25/100/100×2, noise 80 with sat 100 and cov 50/10,
+  noise 20, and a blur+noise chain), 11 effect slots. Exported to
+  `out/cut9-filters.mp4` (43 MB, Δ 16 ms) and verified by per-parameter frame
+  measurements — detail mean, edge peak, chroma and moved-pixel fraction (§8, v8
+  evidence, `out/oracle/cut9-verify.*`).
+- `tools/Test-Examples.ps1` reports **all 10 specs byte-identical** (the v8 writer
+  still reproduces `cut1`…`cut8` exactly, plus the local-only
+  `yourclip-copyright-safe.json`), so v8 is a superset.
 - All `tools/*.ps1` and the `out/oracle/**/*.ps1` helpers parse clean (AST check).
 - VideoPad is **left running**; `Open-Project.ps1` now clears stale modals first,
   so the next run does not get stuck on a "Save changes?" prompt.
@@ -785,16 +875,23 @@ Paste this to continue the work with full context:
 > VideoPad `.vpj` and drives VideoPad's UI (DPI-aware synthetic clicks + `BM_CLICK`
 > on the export dialog) to render an `.mp4` unattended. Proven: spec → `.vpj` →
 > export, verified to within 19 ms of expected duration, by frame MAE against the
-> sources, and byte-identical across runs. The writer is at **v4**: it can reuse a
+> sources, and byte-identical across runs. The writer is at **v8**: it can reuse a
 > source any number of times, add and remove timeline clips, add new media files
 > (ffprobe-measured), mute segments, **split a clip at arbitrary cut points
 > (`split`)**, write **per-segment video effect chains (`effects`/
-> `defaultEffects`, resolved through `tools/effects.json`)**, **change speed
-> (`speed`) and fade clips in/out (`fadeIn`/`fadeOut`, written as keyframed
-> opacity slots)** — each proven against VideoPad's own autosave
-> re-serialisation and a real export (`out/oracle/`). Not
-> yet done: transitions, titles, audio mixing (per-clip volume has no known
-> carrier yet — see §10), merging into already-keyframed effect params, silent
+> `defaultEffects`, resolved through `tools/effects.json`, every numeric parameter
+> range-checked against the registry's schema)**, **change speed (`speed`) and
+> fade clips in/out (`fadeIn`/`fadeOut`, written as keyframed opacity slots)**,
+> **flip a clip (`flip`), set per-clip audio gain (`audioGainDb`) and audio fades
+> (`audioFadeIn`/`audioFadeOut`)** — each proven against VideoPad's own autosave
+> re-serialisation and a real export (`out/oracle/`). The `blur` and `noise`
+> filters are characterised parameter by parameter in §8 v8 evidence: blur is a
+> soft focus (stack slots to strengthen it), noise `intensity` is the strong knob,
+> noise `saturation` at its default 0 desaturates the picture, and `coverage` is
+> the fraction of pixels speckled. Not
+> yet done: transitions, titles, audio mixing (no pan, no second audio track — see
+> §10), the `Cartoon` effect (id not yet captured from the app), merging into
+> already-keyframed effect params, silent
 > (audio-less) media, presets, and setting the output path in the dialog.
 > VideoPad 8.91 32-bit, display at 150% scaling, ffmpeg on PATH. Rules that
 > matter: call `SetProcessDPIAware()` before touching coordinates; enumerate

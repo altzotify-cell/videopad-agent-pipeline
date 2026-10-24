@@ -66,7 +66,7 @@ instead of having to read prose:
   "ok": true, "step": "gate", "exitCode": 0, "timedOut": false, "seconds": 3.13,
   "command": ".\\tools\\Test-Examples.ps1",
   "workDir": "C:\\Users\\user\\Downloads\\videopad",
-  "stdout": "All 8 example(s) reproduced byte-identically.\n...",
+  "stdout": "All 9 example(s) reproduced byte-identically.\n...",
   "stderr": ""
 }
 A step that fails looks like this - no prose to parse, one reason line:

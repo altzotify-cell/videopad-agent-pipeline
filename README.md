@@ -10,18 +10,24 @@ examples/cut1.json  →  tools/New-Project.ps1  →  out/cut1.vpj  →  VideoPad
 
 **Can an agent edit in VideoPad?** Yes for cutting, for structural edits that add
 or remove timeline clips, for splits plus video effects, for pacing and for
-picture and sound treatment: the writer (v7) reuses a source any number of times,
+picture and sound treatment: the writer (v8) reuses a source any number of times,
 drops clips, adds new media files, mutes segments, splits a clip at arbitrary cut
-points, writes per-segment effect chains from `tools/effects.json`, changes
+points, writes per-segment effect chains from `tools/effects.json` — with every
+numeric parameter validated against the registry's range — changes
 playback speed, fades clips in/out, flips them horizontally or vertically,
 attenuates their audio in dB and fades that audio in/out. Cut-only work was
 verified end to end to within 6 ms of expected duration and byte-identical across
 runs; every later feature was verified twice — against VideoPad's own autosave
 re-serialisation, and by measuring a real export (`out/oracle/`): flipped frames
-against ffmpeg-flipped source frames, audio level against `volumedetect` windows.
+against ffmpeg-flipped source frames, audio level against `volumedetect` windows,
+filter parameters against per-frame detail, edge and chroma statistics.
 Audio level is attenuation only — the exporter normalises peaks to full scale, so
 a boost just clips. Not yet: transitions, titles, pan, and a second audio track
 (hence no music bed and no ducking — see [docs/HANDOFF.md](docs/HANDOFF.md) §10).
+The style filters `blur` and `noise` are written and characterised (blur is a soft
+focus, noise `intensity` is the strong knob, `coverage` is the fraction of pixels
+speckled); VideoPad's `Cartoon` effect ships in the app but its id is not captured
+yet, so it cannot be named in a spec.
 
 | start here | what it is |
 |---|---|
@@ -39,7 +45,7 @@ Quickstart (VideoPad must not already be running — `Open-Project.ps1` closes i
     -OutputPath .\out\agent-cut.mp4 -ExpectedDurationMs 210000
 ```
 
-Eight specs to copy from:
+Nine specs to copy from:
 
 | spec | shows |
 |---|---|
@@ -51,6 +57,7 @@ Eight specs to copy from:
 | [`examples/cut6-flip.json`](examples/cut6-flip.json) | the same clip flipped `horizontal`, `vertical`, `both` (with a split through it) and `none` |
 | [`examples/cut7-audio.json`](examples/cut7-audio.json) | audio at 0 / −6 / −12 dB plus a muted clip, with a split through a gain change |
 | [`examples/cut8-audiofade.json`](examples/cut8-audiofade.json) | `audioFadeIn`, `audioFadeOut`, and −6 dB faded in *and* out — one audio slot per clip |
+| [`examples/cut9-filters.json`](examples/cut9-filters.json) | the style filters, fine-tuned: `blur` at 25/100/100-stacked, `noise` isolated per parameter (intensity, saturation, coverage), and a blur→noise chain |
 
 `.\tools\Test-Examples.ps1` rebuilds every spec in `examples/` and fails unless each
 reproduces its committed `.vpj` byte-for-byte — run it after touching the writer.
@@ -59,7 +66,10 @@ reproduces its committed `.vpj` byte-for-byte — run it after touching the writ
 gitignored, and both are what the oracles re-measure against — the rotate/crop
 checks in `out/oracle/cut4-verify.ps1`, the timecode/luma checks in
 `out/oracle/cut5-verify.ps1`, the flipped-frame MAE in `cut6-verify.ps1` and the
-dB windows in `cut7-verify.ps1`/`cut8-verify.ps1`:
+dB windows in `cut7-verify.ps1`/`cut8-verify.ps1`. `cut9` also reads `bars.mp4`
+and measures it in `out/oracle/cut9-verify.ps1`: detail mean, edge peak, chroma
+and the fraction of pixels each filter actually moved, which is how the filter
+parameters were pinned down (see [docs/HANDOFF.md](docs/HANDOFF.md) §8 v8):
 
 ```powershell
 ffmpeg -y -f lavfi -i "testsrc2=size=640x360:rate=25:duration=6" `
@@ -115,15 +125,16 @@ documented separately:
 
 The rendered exports (`out/agent-cut-v2.mp4`, 170 MB each) exceed GitHub's
 per-file limit, so they are gitignored — as are `out/cut4-effects.mp4`,
-`out/cut5-cadence.mp4`, `out/cut6-flip.mp4`, `out/cut7-audio.mp4` and
-`out/cut8-audiofade.mp4`, the verified exports behind the later features. Their
+`out/cut5-cadence.mp4`, `out/cut6-flip.mp4`, `out/cut7-audio.mp4`,
+`out/cut8-audiofade.mp4` and `out/cut9-filters.mp4`, the verified exports behind
+the later features. Their
 SHA256 is in [docs/HANDOFF.md](docs/HANDOFF.md) §8: both v2 runs produced the
 identical file
 `FDCA15802A463E3E7D0BF63AFF595E2E76013E8B6D7353891E48D31FB13CB16D`. Everything
 needed to regenerate and re-measure them is committed
-(`out/oracle/cut*verify.ps1`, `tools/Compare-Vpj.ps1`). The last three are only
-1–2 MB, so `git add -f out/cut6-flip.mp4` works if you would rather keep them
-than re-render.
+(`out/oracle/cut*verify.ps1`, `tools/Compare-Vpj.ps1`). The flip/audio exports are
+only 1–2 MB, so `git add -f out/cut6-flip.mp4` works if you would rather keep them
+than re-render; `cut9-filters.mp4` is 43 MB because grain does not compress.
 
 Also absent by design: the VideoPad installers, the registration backup, scratch
 frame dumps, and the source media itself — the `.vpj` stores paths, not media.

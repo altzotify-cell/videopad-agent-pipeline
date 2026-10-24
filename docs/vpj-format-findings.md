@@ -393,6 +393,40 @@ mirror, plus brightness/contrast/gamma-style groups inside `6`.
 Parameter metadata (which keys exist, their types, enums, defaults and preset
 blobs) lives in `tools/effects.json`, not here.
 
+### Writing a parameter, and what the numbers mean
+
+A spec overrides individual parameters by key:
+
+```json
+"effects": [
+  { "name": "blur",  "params": { "intensity": 40 } },
+  { "name": "noise", "params": { "intensity": 30, "coverage": 60 } }
+]
+```
+
+The writer validates each one against the registry schema *before* the file is
+written — the type/`values` enum, and since v8 the numeric `min`/`max` as well.
+An out-of-range value is refused (`Effect 'blur' parameter 'intensity' got 150;
+the range is 0..100.`) instead of being written for VideoPad to clamp silently;
+a clamped value is indistinguishable from an effect whose knob does nothing.
+
+**Measured behaviour** (v8, `out/oracle/cut9-verify.ps1`, same source frame in
+every clip; "MAE vs control" = mean absolute luma difference against the
+unfiltered clip of the same export):
+
+| effect | parameter | range | measured |
+|---|---|---|---|
+| `blur` (11) | `intensity` | 0–100 | **gentle and monotonic**: 25 → MAE 2.2, 100 → 4.81; mean detail 1.374 → 1.312, hardest edges 49.2 → 48.5. Stacking a second identical slot doubles it (8.06). Soft focus, not an obscurer — use `pixelate` (15) for a mosaic |
+| `noise` (5) | `intensity` | 0–100 | **the strong knob**: 20 → 15.7, 80 → 63.7; mean detail up 39× |
+| `noise` (5) | `saturation` | 0–100 | default **0 leaves grey grain and washes the picture out** (chroma |U−128| 72.4 → 14.5 at intensity 80); 100 puts colour into the grain (16.6) but takes it out of the luma (detail 53.9 → 39.2) — one shared noise budget |
+| `noise` (5) | `coverage` | 0–100 | **fraction of pixels speckled**, scattered over the whole frame, not a region: pixels moved > 8 luma units = 0.913 / 0.463 / 0.101 for 100 / 50 / 10. Low coverage keeps the picture and colour under sparse speckle |
+
+Two consequences worth remembering when authoring a look: an effect slot can be
+**repeated** in one chain (`size=2` with two `type=11` slots) and the effects
+compound in slot order; and because the parameters are unitless 0–100 sliders,
+the only way to know what a number buys you is to measure a frame, which is what
+`cut9-verify.ps1` does.
+
 
 ## Export — driving it, and proving the output
 

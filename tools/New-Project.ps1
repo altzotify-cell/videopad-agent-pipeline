@@ -305,6 +305,27 @@ function Get-EffectDefinition {
     throw "Unknown effect '$Name'. Known effects: $known"
 }
 
+# Checks a numeric parameter against the schema's min/max and returns the number.
+# Without this an out-of-range value is accepted and VideoPad clamps it silently,
+# which is exactly the kind of "the file looks right, the pixels don't" failure
+# this repo spends its time catching.
+function Read-EffectNumber {
+    param($Param, $Value, [string]$EffectName)
+    $n = 0.0
+    if (-not [double]::TryParse([string]$Value, [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture, [ref]$n)) {
+        throw "Effect '$EffectName' parameter '$($Param.key)' got '$Value'; expected a number."
+    }
+    $names = $Param.PSObject.Properties.Name
+    $hasMin = $names -contains 'min'
+    $hasMax = $names -contains 'max'
+    if (($hasMin -and $n -lt [double]$Param.min) -or ($hasMax -and $n -gt [double]$Param.max)) {
+        $lo = if ($hasMin) { [string]$Param.min } else { '-inf' }
+        $hi = if ($hasMax) { [string]$Param.max } else { 'inf' }
+        throw "Effect '$EffectName' parameter '$($Param.key)' got $Value; the range is $lo..$hi."
+    }
+    return $n
+}
+
 # Turns a spec value into the text that goes into the blob: labels become their
 # numeric code, booleans become 0/1, floats get VideoPad's six-decimal format.
 function Format-EffectValue {
@@ -325,8 +346,8 @@ function Format-EffectValue {
             if ([string]$Value -match '^(0|false|no|off)$') { return '0' }
             throw "Effect '$EffectName' parameter '$($Param.key)' got '$Value'; expected true or false."
         }
-        'int' { return ([int64][math]::Round([double]$Value)).ToString([Globalization.CultureInfo]::InvariantCulture) }
-        'float' { return ([double]$Value).ToString('0.000000', [Globalization.CultureInfo]::InvariantCulture) }
+        'int' { return ([int64][math]::Round((Read-EffectNumber -Param $Param -Value $Value -EffectName $EffectName))).ToString([Globalization.CultureInfo]::InvariantCulture) }
+        'float' { return (Read-EffectNumber -Param $Param -Value $Value -EffectName $EffectName).ToString('0.000000', [Globalization.CultureInfo]::InvariantCulture) }
         default { return [string]$Value }
     }
 }
