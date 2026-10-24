@@ -139,7 +139,9 @@ is its handle, **not** its line position.
 Semantics that matter when writing:
 
 - `in`/`out` on a trackclip = trim window **inside the source** (ms); `offset` =
-  position **on the timeline** (ms).
+  position **on the timeline** (ms). With `speedchangef≠1` the window is
+  *speed-scaled* — source = `(in + t) × speed`, see "Speed and fades" in
+  `docs/vpj-format-findings.md`.
 - A source's video and audio are **two separate `type=7` records** joined by
   `hlinked` — trim them identically or A/V drifts.
 - Sequence `duration`/`out` must equal the **exact sum** of `(out - in)` over its
