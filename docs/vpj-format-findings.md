@@ -227,6 +227,19 @@ source measures −21.1, i.e. a +17.9 dB lift with peaks on 0 dBFS. Consequences
 `audioGainDb` refuses positive values, and *any* export of a quiet source comes
 back hot — worth knowing before mastering anything through this pipeline.
 
+**A keyframed audio level is the same wrapped group, escaped once more.** For
+effect 1001 the static form is `amplify=value%3D100.000000%26userdata%3D0%26keys%3D0`;
+an animated form must be `amplify=` + `EscapeDataString('value=…&userdata=0&keys=N&position0=…')`.
+A bare number there (`amplify=0.000000&keys=3&…`) parses as a broken group and
+renders the clip **silent** — measured at −91 dB on every probe, not merely an
+effect that failed to animate.
+
+**Keyframe values interpolate as amplitudes, not as slider positions.** Over an
+800 ms ramp from 0 to 100 the midpoint measures −5.1 dB; a ramp linear in slider
+units would be −27, and one linear in dB about −24. Each keyframe value maps
+through the same 0.4816 dB/unit curve as a static value and the ramp interpolates
+the amplitudes, which is the usual constant-gain fade.
+
 ## The autosave oracle — verify an edit without exporting
 
 `%APPDATA%\NCH Software\VideoPad\autosave.vpj` is rewritten roughly **3 seconds

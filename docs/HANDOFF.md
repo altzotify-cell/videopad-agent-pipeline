@@ -696,13 +696,12 @@ clip is only 3000 ms long"*.
 - **transitions** between clips (`transitions` section — not even inventoried yet),
 - **titles** (the `Type=2SubtitlesExport=1` quirk is in every file, but no title
   record has been authored),
-- **audio effects / mixing** — per-clip *level* is written now (`audioGainDb`,
-  effect 1001, §8 v6) and `mute` was already there, but that is all: no pan, no
-  audio fades or keyframed gain (effect 1001's own Fade In / Fade Out presets are
-  keyframed blobs this writer still refuses to author), and no second audio track,
-  so no music bed and no ducking. `voll`/`volr` and effectchains `fadepoints` stay
-  dead ends (§8 v4). The **track** records carry `volume=100&pan=0`, which is
-  where pan would start.
+- **audio effects / mixing** — per-clip *level* (`audioGainDb`) and *fades*
+  (`audioFadeIn`/`audioFadeOut`) are written now, and `mute` predates them, but
+  that is all: no pan, no other audio effect (reverb, EQ, compressor are in the
+  registry but uncatalogued here), and no second audio track, so no music bed and
+  no ducking. `voll`/`volr` and effectchains `fadepoints` stay dead ends (§8 v4).
+  The **track** records carry `volume=100&pan=0`, which is where pan would start.
 - **keyframed effect parameters** — the writer now *authors* keyframes for fades,
   but still refuses to merge an override into a group that already has `keys!=0`,
 - adding media **without an audio stream** — added media is written as a
@@ -756,9 +755,13 @@ and removal of the records belonging to dropped clips.
   split, then mute), 4 audio slots of effect 1001. Exported to
   `out/cut7-audio.mp4` (1.26 MB, Δ 28 ms) and verified with `volumedetect`
   (§8, v6 evidence).
-- `tools/Test-Examples.ps1` reports **all 8 specs byte-identical** (the v6 writer
-  still reproduces `cut1`…`cut6` exactly, plus the local-only
-  `yourclip-copyright-safe.json`), so v6 is a superset.
+- `out/cut8-audiofade.vpj` — v7 audio fades: 12 000 ms, 4 clips (control,
+  `audioFadeIn 800`, `audioFadeOut 800`, `-6 dB` with 500/500), 3 keyframed audio
+  slots. Exported to `out/cut8-audiofade.mp4` (1.23 MB, Δ 28 ms) and verified by
+  windowed `volumedetect` (§8, v7 evidence).
+- `tools/Test-Examples.ps1` reports **all 9 specs byte-identical** (the v7 writer
+  still reproduces `cut1`…`cut7` exactly, plus the local-only
+  `yourclip-copyright-safe.json`), so v7 is a superset.
 - All `tools/*.ps1` and the `out/oracle/**/*.ps1` helpers parse clean (AST check).
 - VideoPad is **left running**; `Open-Project.ps1` now clears stale modals first,
   so the next run does not get stuck on a "Save changes?" prompt.

@@ -29,7 +29,7 @@ Run from the repo root. Steps 0, 1 and 5 need no VideoPad at all.
 
 | # | step | command | needs app | measured |
 |---|---|---|---|---|
-| 0 | **gate** | `.\tools\Test-Examples.ps1` | no | 2.6 s (7 specs) |
+| 0 | **gate** | `.\tools\Test-Examples.ps1` | no | 2.6 s (9 specs) |
 | 1 | **build** | `.\tools\New-Project.ps1 -Spec examples\cut5-cadence.json` | no | 1.4 s |
 | 2 | **load** | `.\tools\Open-Project.ps1 -ProjectPath out\cut5-cadence.vpj` | yes | 5.6 s inside, 11.8 s wall |
 | 3 | **round-trip** | `.\tools\Watch-Autosave.ps1 -Project out\cut5-cadence.vpj -LogPath out\oracle\cut5-cadence.log` then `.\tools\Compare-Vpj.ps1 -A out\cut5-cadence.vpj -B out\oracle\cut5-cadence.roundtrip.vpj` | yes | ~110 s (waits for the ~100 s autosave timer) |
