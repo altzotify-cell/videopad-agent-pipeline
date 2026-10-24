@@ -106,6 +106,26 @@ function Get-PadDialogWindows {
     return @($wins | Where-Object { $_.Hwnd -ne $mainH })
 }
 
+function Find-PadButton {
+    <#
+        Returns @{ Dialog; Button } for the first real Win32 Button with the given
+        text on any top-level VideoPad window, or $null. Buttons are the only
+        reliable anchors in this UI: the ribbon is custom-drawn and unnamed, and a
+        prompt that stacks on another can arrive with no window text at all, but
+        [Try Load] is still a #32770 child the app knows how to answer.
+
+        The dialog handle comes back too because WM_COMMAND has to be posted to
+        the dialog that owns the control - posting it to the button itself is
+        accepted silently and changes nothing.
+    #>
+    param([string]$Text)
+    foreach ($win in (Get-PadWindows -MinArea 400)) {
+        $h = Find-PadControl -Window $win -Text $Text -ClassName 'Button'
+        if ($h) { return [pscustomobject]@{ Dialog = [IntPtr]$win.Hwnd; Button = $h } }
+    }
+    return $null
+}
+
 function Get-PadDescendantTexts {
     param([int64]$Hwnd)
     $items = New-Object System.Collections.ArrayList
@@ -141,6 +161,13 @@ function Clear-PadModals {
     foreach ($win in (Get-PadDialogWindows -ProcessId $ProcessId)) {
         $msg = (Get-PadDescendantTexts -Hwnd $win.Hwnd) -join ' '
         if ($msg -match 'damaged') { continue }
+        # The checksum prompt is not always identifiable by text: when a second
+        # one stacks on top of the first the new window has no title at all and
+        # only its [Try Load] [Cancel] buttons remain. Answering [Cancel] there
+        # silently abandons the load, which then looks like a project that
+        # "failed to open" while the app sits on an empty sequence. Its button
+        # set is the reliable marker, so that is what gets skipped.
+        if (Find-PadControl -Window $win -Text 'Try Load' -ClassName 'Button') { continue }
 
         foreach ($label in @('Discard', "Don't Save", 'No', 'Close', 'Cancel')) {
             $h = Find-PadControl -Window $win -Text $label -ClassName 'Button'
@@ -204,6 +231,36 @@ while ($sw.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
     Start-Sleep -Milliseconds 700
     $proc = @(Get-PadProcess) | Select-Object -First 1
     if (-not $proc) { continue }
+
+    # The checksum prompt is found by its [Try Load] button rather than by name:
+    # when prompts stack the later window has no name, and missing it here means
+    # Clear-PadModals below answers [Cancel] and throws the load away.
+    $tryLoad = Find-PadButton -Text 'Try Load'
+    if ($tryLoad) {
+        Invoke-PadControlClick -Hwnd $tryLoad.Button -SettleMs 700
+        $promptCount++
+        Start-Sleep -Milliseconds 500
+        continue
+    }
+
+    # After an unclean exit VideoPad replaces its main window with a crash report
+    # ([It Crashed] / [Something Else]) and starts with an empty project, having
+    # dropped the file argument on the floor. Report that immediately instead of
+    # waiting out the timeout with an unexplained empty title.
+    $crash = Find-PadButton -Text 'Something Else'
+    if ($crash) {
+        $sw.Stop()
+        return [pscustomobject]@{
+            Loaded          = $false
+            Title           = 'Abnormal Termination Detected'
+            PromptDismissed = ($promptCount -gt 0)
+            PromptCount     = $promptCount
+            Modals          = @($script:ModalLog)
+            ElapsedSeconds  = [math]::Round($sw.Elapsed.TotalSeconds, 1)
+            Message         = 'VideoPad is showing its crash report, which consumes the file argument. Answer it with [Something Else], then run this again.'
+        }
+    }
+
     if ($null -eq $main -or -not $main.Current.Name) {
         $main = Get-MainWindow -ProcessId $proc.Id
     }

@@ -1,0 +1,16 @@
+{
+    "template": "../../../examples/probe.vpj",
+    "output": "./probe-base.vpj",
+    "sequenceName": "V4 Probe",
+    "media": [
+        { "id": "bars", "path": "./../../testmedia/bars.mp4" }
+    ],
+    "segments": [
+        { "source": "bars", "start": 0, "end": 3000 },
+        { "source": "bars", "start": 0, "end": 3000 },
+        { "source": "bars", "start": 0, "end": 3000 },
+        { "source": "bars", "start": 0, "end": 3000 },
+        { "source": "bars", "start": 0, "end": 3000 },
+        { "source": "bars", "start": 0, "end": 3000 }
+    ]
+}

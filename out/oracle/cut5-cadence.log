@@ -1,0 +1,13 @@
+=== autosave watcher ===
+[00:27:39] target      : C:\Users\user\Downloads\videopad\out\cut5-cadence.vpj
+[00:27:39] autosave pre: 00:22:59
+[00:27:51] open        : Loaded=True prompts=1 in 7.3s
+[00:27:51] modals      : #32770 -> [Discard]
+[00:27:51] title       : VideoPad Professional by NCH Software - cut5-cadence.vpj - Licensed to user
+[00:27:54] autosave new: 00:27:51 (after 3s)
+[00:27:54] sequence    : Cadence%20Test
+[00:27:54] status      : parsed a sequence name
+[00:27:54] checksum    : 9fab5e0fe984d380edbb458fc05c36605e065fd050f5b4771cdfd33f7780785b
+[00:27:54] hindex      : 3704
+[00:27:54] capture     : C:\Users\user\Downloads\videopad\out\oracle\cut5-cadence.roundtrip.vpj
+=== done ===

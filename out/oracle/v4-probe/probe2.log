@@ -1,0 +1,13 @@
+=== autosave watcher ===
+[00:21:27] target      : C:\Users\user\Downloads\videopad\out\oracle\v4-probe\probe2.vpj
+[00:21:27] autosave pre: 00:16:59
+[00:22:18] open        : Loaded=False prompts=26 in 46.1s
+[00:22:18] modals      : #32770 -> [Discard]
+[00:22:18] title       : VideoPad Professional by NCH Software - Untitled.vpj - Licensed to user
+[00:23:00] autosave new: 00:22:59 (after 42s)
+[00:23:00] sequence    : V4%20Probe%202
+[00:23:00] status      : parsed a sequence name
+[00:23:00] checksum    : c82607bd0695831cf704d4bac4cbc7bdda20a58461cb2c4568eaf7d6b2049ffe
+[00:23:00] hindex      : 3773
+[00:23:00] capture     : C:\Users\user\Downloads\videopad\out\oracle\v4-probe\probe2.roundtrip.vpj
+=== done ===

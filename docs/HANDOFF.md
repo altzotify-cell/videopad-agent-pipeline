@@ -24,11 +24,11 @@ renderer, and the agent only supplies a project file plus a click.
 |---|---|---|
 | Can a tool write a `.vpj` VideoPad will open and honour? | **Yes, proven** | `.vpj` is plain-text LF-terminated sectioned querystrings; a stale checksum only raises a "Damaged File" prompt that is auto-answerable |
 | Can VideoPad be made to *export* that project unattended? | **Yes, proven** | ribbon coordinate clicks + `BM_CLICK` on the export dialog's `Create` button; output verified frame-by-frame |
-| Can an agent perform *arbitrary* edits? | **Partly — v3** | the writer renames, trims, reorders, **reuses a source any number of times**, adds and removes clips, **adds new media files**, mutes segments, **splits a clip at arbitrary cut points** and writes **per-segment video effect chains** registered in `tools/effects.json`. Not yet: transitions, titles, audio mixing, speed changes. See §9 |
+| Can an agent perform *arbitrary* edits? | **Partly — v4** | the writer renames, trims, reorders, **reuses a source any number of times**, adds and removes clips, **adds new media files**, mutes segments, **splits a clip at arbitrary cut points**, writes **per-segment video effect chains** registered in `tools/effects.json`, and now **changes playback speed and fades clips in/out**. Not yet: transitions, titles, audio mixing. See §9 |
 
 So: **the loop closes today for a cut** *and* for structural edits that only add
-or remove timeline clips and bin media, *and* for split + effect chains. It does
-not yet cover transitions, titles or audio mixing.
+or remove timeline clips and bin media, *and* for split + effect chains, *and* for
+speed/fade pacing. It does not yet cover transitions, titles or audio mixing.
 
 
 There is **no scripting API**: VideoPad is a Delphi app with no MSAA/UIA
@@ -68,11 +68,13 @@ conclusive past the opening (§8).
 | `examples/cut1.json` | the edit spec (template, output, sequence name, segments) |
 | `examples/cut2-reuse.json`, `examples/cut3-addmedia.json` | v2 specs: source reuse / dropped clip / mute, and added media |
 | `examples/cut4-split-effects.json` | v3 spec: `split`, `defaultEffects`, per-segment `effects` |
+| `examples/cut5-cadence.json` | v4 spec: `speed`, `fadeIn`, `fadeOut` (plus a mirror so effects are seen to compose with speed) |
 | `tools/effects.json` | **effect registry**: for each effect, its `id` (the value that goes in `typeN`), the blob VideoPad ships (`defaults`), named `presets`, and per-key metadata (number, enum, bool, keyframed). Keys were dumped from the live `HKCU:\…\VideoPad\EffectPresets` |
 | `tools/New-Project.ps1` | **spec → .vpj** by editing the template; preserves unknown fields byte-for-byte |
 | `tools/Test-Examples.ps1` | rebuilds every spec and asserts the output is **byte-identical** — the gate before a commit (no VideoPad needed) |
 | `tools/Open-Project.ps1` | launches VideoPad on a `.vpj`, clears stale modals, auto-answers "Damaged File" via `WM_COMMAND/IDOK`; ~4.5 s |
 | `tools/Watch-Autosave.ps1` | load → wait for autosave refresh → report what the parser actually absorbed |
+| `tools/Compare-Vpj.ps1` | field-level diff of two `.vpj` files, records matched by handle — the check behind every "round-tripped unchanged" claim |
 | `tools/Export-Project.ps1` | **.vpj → .mp4**: ribbon clicks, `Create`, wait, adopt file, verify duration |
 | `tools/PadUi.ps1` | UI primitives: DPI-aware capture/click, top-level window enumeration, control search, `BM_CLICK`, window resizing |
 | `tools/NativeInput.cs` | P/Invoke layer (`mouse_event`, `keybd_event`, `SendMessage`, `EnumWindows`, …) |
@@ -81,10 +83,11 @@ conclusive past the opening (§8).
 | `docs/vpj-format-findings.md` | format reference: sections, handles, checksum, timeline semantics, export |
 | `out/cut1.vpj`, `out/cut2-reuse.vpj`, `out/cut3-addmedia.vpj` | the generated projects (210 000 / 150 000 / 36 000 ms) |
 | `out/cut4-split-effects.vpj` | v3 project: 15 000 ms, 6 clips from 3 segments (one split in three, one split in two) + effect chains |
+| `out/cut5-cadence.vpj` | v4 project: 13 500 ms, 4 clips (2×, 1×, 0.5×, 2× with a chain), three keyframed fades |
 | `out/agent-cut-v2.mp4`, `out/agent-cut-first-export.mp4` | the two verified 210 s exports (identical) |
-| `out/cut3-addmedia.mp4`, `out/cut4-effects.mp4` | the v2 add-media and v3 split+effects exports (gitignored) |
+| `out/cut3-addmedia.mp4`, `out/cut4-effects.mp4`, `out/cut5-cadence.mp4` | the v2, v3 and v4 exports (gitignored) |
 
-| `out/oracle/` | evidence: v2/v3 autosave round-trips, watcher logs, export logs, frame-MAE scripts and results (`cut3-verify.*`, `cut4-verify.*`), and `compare-projects.ps1` — the timeline/effect-chain differ used against a round-trip |
+| `out/oracle/` | evidence: v2/v3/v4 autosave round-trips, watcher logs, export logs, frame-MAE scripts and results (`cut3-verify.*`, `cut4-verify.*`, `cut5-verify.*`), the `v4-probe/` experiment set, and `compare-projects.ps1` (timelines + chains, human-readable) — pair it with `tools/Compare-Vpj.ps1` for a field-level diff |
 
 End-to-end invocation, in order:
 
@@ -186,6 +189,16 @@ Semantics that matter when writing:
   given; `params` alone starts from the effect's `defaults`. Overriding a
   keyframed parameter group (`keys!=0`) is refused rather than silently discarded.
 - `sequenceName` is optional and URL-encoded into the sequence record.
+- `speed` (number, default 1) changes playback rate: 2 halves the clip's timeline
+  length, 0.5 doubles it. **`in`/`out` are written divided by the speed**, because
+  the app reads source = position × speed (see
+  `docs/vpj-format-findings.md` → "Speed and fades"). A segment that would need
+  `out > mediaDuration/speed` is **rejected**, since VideoPad silently clamps
+  there and every later clip would shift.
+- `fadeIn` / `fadeOut` (ms) ramp the clip from/to black. They are written as a
+  keyframed Fade (opacity) slot appended after the segment's own effects; the app
+  only ships whole-clip fades, so partial fades need keyframes. Fades that
+  overlap each other or exceed the clip are rejected.
 - **All paths resolve against the spec's own folder** unless absolute, so a spec
   is portable between checkouts.
 - `media` entries are measured with `ffprobe` — supply `"duration"` (ms) to skip
@@ -214,6 +227,10 @@ What `New-Project.ps1` does:
   what the app does when a clip is deleted);
 - **adds** a `type=5`/`type=3` media pair plus one `effectchains` line per handle
   for every new file; segments of the same added media share that one record;
+- **sets speed** on both records of a clip's video/audio pair and lays the
+  timeline out from the speed-scaled lengths, so offsets stay contiguous;
+- **appends a fade slot** for `fadeIn`/`fadeOut`, with keyframe positions as
+  fractions of the clip's own (post-speed) length;
 - refuses trims past source length, and **asserts**: every handle unique, exactly
   one `effectchains` record per clip handle, section counts consistent with their
   bodies, and the checksum line untouched — so a format drift fails loudly
@@ -311,6 +328,18 @@ and point its stdout/stderr at a log file, then poll the log — that is how the
 that swallows clicks on the ribbon until dismissed; treat it like any other modal
 (`Get-PadWindows` + `WM_COMMAND`/`IDOK`) instead of force-killing the app again.
 
+**R11 — Find prompts by their buttons, not by their names.** The "Damaged File"
+prompt's window text is empty whenever a second prompt stacks on the first, and
+`Clear-PadModals` used to answer the leftover one with `[Cancel]` — which
+silently throws the load away, leaving an empty "Untitled" sequence that looks
+exactly like a corrupt project. `Open-Project.ps1` now looks for a real Win32
+`Button` whose text is `Try Load` on any top-level window and activates it with
+`BM_CLICK`. Two details cost real time: `WM_COMMAND`/`IDOK` must be posted to the
+**dialog**, not to the button (posting to the button is accepted and does
+nothing — it produced 26 unanswered prompts), and a prompt whose button set is
+`[It Crashed] [Something Else]` means the app is in crash recovery and has
+already dropped the file argument, so the only useful answer is to report it.
+
 ## 8. Evidence the pipeline is real (not "the export dialog opened")
 
 Two independent oracles, deliberately: one for *what VideoPad parsed*, one for
@@ -403,7 +432,8 @@ one segment overriding with its own chain:
 | 12 000–15 000 | Ep3 @ 900 000 | `type=36` mirror `mirrordirection=1` **and** `type=6` colour `contrast=60` |
 
 **Oracle A — autosave round-trip** (`out/oracle/cut4-split-effects.roundtrip.vpj`,
-differ with `out/oracle/compare-projects.ps1 -A out/cut4-split-effects.vpj -B …`):
+differ with `tools/Compare-Vpj.ps1 -A out/cut4-split-effects.vpj -B …`; for a
+readable dump of timelines and chains use `out/oracle/compare-projects.ps1`):
 all 6 video/audio pairs came back with identical `h`, `hlinked`, `in`, `out`,
 `offset` — the split survived as three and two adjacent clips sharing one media
 handle, which is exactly how the app itself stores a split. All six chains came
@@ -443,7 +473,69 @@ Sampling times follow from the spec, not from guessing: clip 3 starts at timelin
 6 000 with `in=0`, so export@7 s is `bars@1 s`; clip 6 starts at 12 000 with
 `in=900000`, so export@13 s is `Ep3@901 s`.
 
-## 9. What is NOT supported yet (and the shape of the fix)
+### v4 evidence (speed + fades)
+
+Spec `examples/cut5-cadence.json` → `out/cut5-cadence.vpj`: 13 500 ms, 4 clips.
+
+| timeline (ms) | written as | why |
+|---|---|---|
+| 0–3 000 | `in=0 out=3000`, `speedchangef=2.000000` on both records, Fade `keys=3` at positions 0 / 0.083333 / 1 | `bars` 0–6 000 at 2× — 6 s of source in a 3 s slot; 250 ms fade-in = 250/3000 of the clip |
+| 3 000–6 000 | `in=1000 out=4000`, Fade `keys=3` at 0 / 0.833333 / 1 | 500 ms fade-out, position 1 − 500/3000 |
+| 6 000–12 000 | `in=0 out=6000`, `speedchangef=0.500000` | `bars` 0–3 000 at half speed |
+| 12 000–13 500 | `in=1500 out=3000`, `speedchangef=2.000000`, Mirror + Fade `keys=4` at 0 / 0.133333 / 0.866667 / 1 | `bars` 3 000–6 000 at 2×, so `in` is 3000/2; 200 ms fades on a 1500 ms clip |
+
+**Oracle A — autosave round-trip** (`out/oracle/cut5-cadence.roundtrip.vpj`): the
+only differences are `thumb`/`thumbpos` on the sequence record, which the app
+always zeroes. Every `in`/`out`/`offset`, both `speedchangef` values of each pair,
+all four keyframe groups and the mirror slot came back untouched — in particular
+the app did **not** re-clamp `out`, which is what the writer's guard exists to
+prevent.
+
+**Oracle B — export** `out/cut5-cadence.mp4`: 13.534 s vs 13 500 (Δ 34 ms),
+2 245 767 bytes. Every number below is reproduced by
+`out/oracle/cut5-verify.ps1` (output in `cut5-verify.txt`); source frames are
+matched by 32×32 greyscale MAE, the same method `cut4-verify.ps1` uses, so speed
+is *measured* rather than inferred from the burnt-in timecode (which was read
+visually as a second opinion):
+
+| claim | measurement | reading |
+|---|---|---|
+| clip 1 plays at 2× | export@2.9 s vs `bars@5.8` = **0.69**; vs `bars@2.9` = 7.48 | 3 s into a 2× clip is source 5.8 s, not 2.9 s |
+| clip 3 plays at 0.5× | export@8.5 s vs `bars@1.25` = **2.39**; vs `bars@2.5` = 5.78 | 2.5 s into a half-speed clip is source 1.25 s |
+| `in` is speed-scaled | export@12.5 s vs `bars@4.0` = **1.67**; vs `bars@2.0` = 9.05 | clip 4 has `in=1500`; source is (1500+500)×2 = 4.0 s, not 2.0 s |
+| clip 4 keeps its effect | export@12.5 vs `bars@4.0` half-mirrored = **1.67**, vs unflipped = 53.99 | the chain still applies while the clip is sped up |
+
+Fades, as mean luma of the 32×32 frame: clip 1 climbs **5.3 → 67.1 → 126.8**
+across its 250 ms and holds at 126.8; clip 2 falls **125.0 → 44.3 → 2.4** across
+its last 500 ms; clip 4 is dark at 12.05 s (37.9), reaches 144.9 by 12.4 s and is
+back to 20.3 at 13.45 s as its 200 ms fade-out finishes.
+
+While measuring clip 4, the mirror's *default* direction turned out not to be a
+flip at all: `mirrordirection=0` keeps the left half and reflects it onto the
+right (a half mirror), so `bars@4.0` matches it at MAE 1.67 while plain
+hflip/vflip/unflipped all sit at 54-58. `mirrordirection=1` — what cut4 used — is
+the plain horizontal flip.
+
+**Guard rails, exercised:** a 1000 ms segment with `fadeIn 800`+`fadeOut 800`
+fails with *"fades 800+800 ms but the clip is only 1000 ms long"*; `speed: 0`
+fails with *"has speed 0; it must be greater than 0"*. Both refuse before a byte
+of project is written.
+
+**What the probes ruled out** (all in `out/oracle/v4-probe/`, same recipe in §8):
+
+- `fadeinduration` on the trackclip is **not** a fade length — the app resets it
+  to 0 on load, so a fade must be an effect-chain keyframe group instead.
+- `voll`/`volr` on a clip's effectchains record round-trip verbatim but change
+  nothing in the render: six segments exported at −3.4 dB whether they carried
+  `50`, `-6` or `0`.
+- Setting `fadepoints=2` makes the app materialise a full fade model
+  (`fadetype0/1`, `pos0/1`, `volume0/1`) — a real format, but with zeroed points
+  it has no audible effect, and the units are still unverified.
+- effect 28 (the `fade` entry in `tools/effects.json`) applied to the **audio**
+  chain survives the round-trip and is silently ignored at render time: it is
+  video opacity. This is why `fadeIn`/`fadeOut` are documented as picture fades.
+
+## 10. What is NOT supported yet (and the shape of the fix)
 
 **Writer — still needs records this writer does not model:**
 
@@ -451,10 +543,13 @@ Sampling times follow from the spec, not from guessing: clip 3 starts at timelin
 - **titles** (the `Type=2SubtitlesExport=1` quirk is in every file, but no title
   record has been authored),
 - **audio effects / mixing** — only the video chain is written; an audio clip keeps
-  the empty default chain, and volume is not touched,
-- **keyframed effect parameters** — an override of a group with `keys!=0` is
-  refused rather than merged, so animated effects still have to be authored by hand,
-- **speed changes** (`speedchangef`) — parsed past, never written,
+  the empty default chain. Four candidates for per-clip volume were tested and
+  three are dead ends (`voll`/`volr` inert, effectchains `fadepoints` inert at
+  render time, effect 28 is video opacity — see §8 v4 evidence). The real surface
+  is the Audio tab / "Audio Effects" button, not yet captured. The **track**
+  records do carry `volume=100&pan=0`, which is the cheapest next target.
+- **keyframed effect parameters** — the writer now *authors* keyframes for fades,
+  but still refuses to merge an override into a group that already has `keys!=0`,
 - adding media **without an audio stream** — added media is written as a
   `type=5`/`type=3` pair, so a silent video is currently rejected rather than
   guessed at,
@@ -480,10 +575,10 @@ and removal of the records belonging to dropped clips.
 - **Encode speed** — ~7 min per 3.5 min of 1080p, no progress read-out, only size
   stability.
 
-## 10. Current state (as of this handoff)
+## 11. Current state (as of this handoff)
 
 - `out/cut1.vpj` — v1 regression: 210 000 ms, sequence "Agent Cut", still
-  byte-identical when regenerated by the v3 writer.
+  byte-identical when regenerated by the v4 writer.
 - `out/cut2-reuse.vpj` — v2 reuse/drop/mute: 150 000 ms, 5 clips from 2 sources,
   round-tripped through the app unchanged.
 - `out/cut3-addmedia.vpj` — v2 add-media: 36 000 ms, exported to
@@ -493,16 +588,21 @@ and removal of the records belonging to dropped clips.
   (`out/oracle/cut4-split-effects.roundtrip.vpj`) and exported to
   `out/cut4-effects.mp4` (7.46 MB, Δ 19 ms), verified by chroma + symmetry +
   transpose comparison (§8, `out/oracle/cut4-verify.*`).
-- `tools/Test-Examples.ps1` reports **all 4 examples byte-identical** (the v3
-  writer still reproduces `cut1`/`cut2`/`cut3` exactly), so v3 is a superset.
-- All `tools/*.ps1` and the three `out/oracle/*.ps1` helpers parse clean (AST check).
+- `out/cut5-cadence.vpj` — v4 speed + fades: 13 500 ms, 4 clips (2×, 1×, 0.5×,
+  2× with mirror), 4 effect slots including three keyframed fades.
+  Round-tripped (`out/oracle/cut5-cadence.roundtrip.vpj`, only the thumbnail
+  cache differs) and exported to `out/cut5-cadence.mp4` (2.25 MB, Δ 34 ms),
+  verified by burnt-in timecode + luma ramps (§8).
+- `tools/Test-Examples.ps1` reports **all 5 examples byte-identical** (the v4
+  writer still reproduces `cut1`/`cut2`/`cut3`/`cut4` exactly), so v4 is a superset.
+- All `tools/*.ps1` and the `out/oracle/**/*.ps1` helpers parse clean (AST check).
 - VideoPad is **left running**; `Open-Project.ps1` now clears stale modals first,
   so the next run does not get stuck on a "Save changes?" prompt.
 - The user's `Videos` folder is clean again — VideoPad writes there by default
   when the project's `Computer_FilePath` points there, and
   `Export-Project.ps1` moves the file out afterwards.
 
-## 11. Bootstrap prompt for a new session
+## 12. Bootstrap prompt for a new session
 
 Paste this to continue the work with full context:
 
@@ -513,13 +613,16 @@ Paste this to continue the work with full context:
 > VideoPad `.vpj` and drives VideoPad's UI (DPI-aware synthetic clicks + `BM_CLICK`
 > on the export dialog) to render an `.mp4` unattended. Proven: spec → `.vpj` →
 > export, verified to within 19 ms of expected duration, by frame MAE against the
-> sources, and byte-identical across runs. The writer is at **v3**: it can reuse a
+> sources, and byte-identical across runs. The writer is at **v4**: it can reuse a
 > source any number of times, add and remove timeline clips, add new media files
 > (ffprobe-measured), mute segments, **split a clip at arbitrary cut points
-> (`split`)**, and write **per-segment video effect chains (`effects`/
-> `defaultEffects`, resolved through `tools/effects.json`)** — each proven against
-> VideoPad's own autosave re-serialisation and a real export (`out/oracle/`). Not
-> yet done: transitions, titles, audio mixing, keyframed effect params, silent
+> (`split`)**, write **per-segment video effect chains (`effects`/
+> `defaultEffects`, resolved through `tools/effects.json`)**, **change speed
+> (`speed`) and fade clips in/out (`fadeIn`/`fadeOut`, written as keyframed
+> opacity slots)** — each proven against VideoPad's own autosave
+> re-serialisation and a real export (`out/oracle/`). Not
+> yet done: transitions, titles, audio mixing (per-clip volume has no known
+> carrier yet — see §10), merging into already-keyframed effect params, silent
 > (audio-less) media, presets, and setting the output path in the dialog.
 > VideoPad 8.91 32-bit, display at 150% scaling, ffmpeg on PATH. Rules that
 > matter: call `SetProcessDPIAware()` before touching coordinates; enumerate

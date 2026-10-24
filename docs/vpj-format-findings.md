@@ -110,7 +110,7 @@ Trackclip record (`type=7`):
 | `horiginalclip` | source media handle → a `type=3` (video) or `type=5` (audio) record |
 | `htrack` | owning track handle → `type=1` video track, `type=2` audio track |
 | `hlinked` | the paired clip on the other track (video ↔ audio) |
-| `in` / `out` | trim window **inside the source**, milliseconds |
+| `in` / `out` | trim window **inside the source**, milliseconds — *speed-scaled* when `speedchangef≠1`, see below |
 | `offset` | position **on the timeline**, milliseconds |
 | `tlstart`/`tlend`/`tlstartoff`/`tlendoff` | `0` in every sample seen so far |
 
@@ -136,6 +136,67 @@ round-trip returns three adjacent pairs, not one pair plus a marker. No
 GOP/keyframe alignment is needed: the trim window is expressed in source
 milliseconds and the decoder seeks, so a cut in the middle of a GOP renders like
 any other trim.
+
+## Speed and fades (v4, verified)
+
+**`in`/`out` are speed-scaled.** With `speedchangef=s` on a clip, the frame the
+clip shows at timeline position `p` inside itself is source-pixel time `p * s`,
+so the fields are *not* raw source milliseconds once `s ≠ 1`:
+
+```
+offset ... offset + (out - in)   occupy the timeline
+source read: (in + t) * s        for t in [0, out - in]
+```
+
+Proof (`out/oracle/v4-probe/`, a 3 s clip with `in=1000`, `out=4000`,
+`speedchangef=2.000000`): the app rewrote `out` to **3011** and the export's
+first frame reads source `00:00:02.000` — `in * s`, not `in`. It had also
+clamped `out` to `mediaDuration / s`, which shortened the clip by 989 ms and
+pulled the sequence duration from 15000 to 14011. A clip with `in` at 0 hides
+all of this, which is why the earlier "speed is unverified" note survived: with
+`in=0, out=3000, speed=2` the app accepted the file unchanged and simply played
+6 s of source in a 3 s slot.
+
+Consequences for a writer:
+
+- to show source `[a, b]` at speed `s`, write `in = a/s`, `out = (b)/s`
+  (equivalently `out = in + (b-a)/s`), and `speedchangef=s` on **both** records
+  of the video/audio pair;
+- the timeline length of the clip is `out - in`, so later `offset`s accumulate
+  that, not `b - a`;
+- `out > mediaDuration/s` is silently clamped by the app, so a spec that would
+  need it is better rejected (`New-Project.ps1` does).
+
+**Fades are opacity keyframes, not a field.** `fadeinduration` on the trackclip
+looks like a fade length and is **normalised back to 0** on load — writing it
+alone changes nothing. The real mechanism is the Fade effect (id 28 in
+`tools/effects.json`) in the clip's effect chain, whose parameter is a keyframe
+group with *fractional* positions and 0-100 opacity values:
+
+```
+data0=value%3D0.000000%26userdata%3D0%26keys%3D3
+  %26position0%3D0.000000%26value0%3D0.000000 ...
+  %26position1%3D0.083333%26value1%3D100.000000 ...   (250 ms of a 3000 ms clip)
+  %26position2%3D1.000000%26value2%3D100.000000 ...
+```
+
+VideoPad's own Fade In / Fade Out presets ramp across the *whole* clip
+(`position0=0`, `position1=1`), so a partial fade can only be expressed this
+way. `cut5-cadence.vpj` uses it for a 250 ms fade-in on a 3 s clip and the
+export's frame luma climbs 5.3 → 67.1 → 126.8 across those 250 ms
+(`out/oracle/cut5-verify.ps1`).
+
+**Mirror direction is not a flip when it is 0.** `mirrordirection=1` is a plain
+horizontal flip (what `cut4` used). The shipped default, `0`, keeps the left half
+of the frame and reflects it onto the right — a "half mirror". Measured against
+`bars@4.0`: half-mirrored MAE 1.67, unflipped 53.99, hflip 53.98, vflip 58.36.
+Worth knowing before writing a `mirror` slot and expecting a flip.
+
+**Effect 28 is video opacity, not audio volume.** It was applied to the *audio*
+chain of two probe clips (one static `value=25`, one keyframed fade in/out): both
+survived the round-trip byte-for-byte and neither changed the rendered audio
+(mean volume −3.4 dB in every segment, fade included). Per-clip audio is
+therefore still unwritten — see "Still open".
 
 ## The autosave oracle — verify an edit without exporting
 
@@ -168,7 +229,7 @@ app's writer and this writer agree on the format.
 file prompt) → wait for the autosave refresh → capture it next to the log and
 report the parsed sequence name, checksum and `hindex`.
 
-## Writer: `tools/New-Project.ps1` (v3)
+## Writer: `tools/New-Project.ps1` (v4)
 
 Takes a JSON spec and produces a `.vpj` by editing a known-good template, so
 every field not explicitly modelled survives byte-for-byte. The template's
@@ -230,10 +291,10 @@ is the right shape. Note `clips=` counts the sequence record *plus* every media
 record — adding one file therefore raises `clips=` by 2 and `effectchains=` by 2,
 and adding one clip raises `trackclips=` by 2 and `effectchains=` by 2.
 
-**Scope after v3:** rename, trim, reorder, drop, reuse (n×), add media, mute,
-split at arbitrary cut points, and video effect chains per clip. Not modelled:
-transitions, titles, audio mixing, keyframed parameters, speed, extra tracks,
-audio-less media.
+**Scope after v4:** rename, trim, reorder, drop, reuse (n×), add media, mute,
+split at arbitrary cut points, video effect chains per clip, per-segment speed and
+fade in/out. Not modelled: transitions, titles, audio mixing, keyframed effect
+parameters a spec did not author itself, extra tracks, audio-less media.
 
 ## Effect chains (`effectchains`) — the slot format
 
@@ -378,11 +439,16 @@ and `tools/Probe-ExportDialog.ps1` (control-map dump).
   chains cover per-clip effects only, not the between-clip crossfade records.
 - **Titles**: the `Type=2SubtitlesExport=1` fragment is in every file, but no
   title object has been authored or round-tripped.
-- **Audio effects and mixing**: audio `effectchains` records keep `size=0`;
-  volume, pan and audio filters are unwritten.
-- **Keyframed parameters**: a parameter group with `keys!=0` is read but never
-  merged — the writer refuses to override it.
-- **Speed**: `speedchangef≠1` duration semantics are unverified.
+- **Audio volume and audio effects**: four candidates were tested and three are
+  dead ends — `voll`/`volr` on the clip's effectchains record round-trip but do
+  not change the render; the effectchains-level `fadepoints` expands on load into
+  a full fade model (`fadepoints=2` materialises `fadetype0/1`, `pos0/1`,
+  `volume0/1`), but with zeroed points there is no audible effect; and effect 28
+  is video opacity, not volume. Audio effects live behind the Audio tab / "Audio
+  Effects" ribbon button, which has not been captured. Note the **track** records
+  do carry `volume=100&pan=0`, so whole-track gain is the cheapest next target.
+- **Keyframed parameters**: the writer authors keyframes for fades only; a
+  parameter group that arrives with `keys!=0` is still refused rather than merged.
 - **Audio-less media**: added media is written as a `type=5`/`type=3` pair and
   rejected when `ffprobe` finds no audio stream.
 - **Round-trip through a real save** to normalise the checksum, instead of relying

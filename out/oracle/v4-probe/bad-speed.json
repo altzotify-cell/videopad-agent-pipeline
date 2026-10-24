@@ -1,0 +1,1 @@
+{"output":"./bad.vpj","template":"../../../examples/probe.vpj","segments":[{"speed":0,"end":1000,"source":"bars","start":0}],"media":[{"id":"bars","path":"../../testmedia/bars.mp4"}]}

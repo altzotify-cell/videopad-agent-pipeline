@@ -30,6 +30,21 @@
         Noise, Old Film, Blur and Border. Definitions, parameter schemas and the
         preset blobs VideoPad ships live in tools/effects.json.
 
+    v4 adds the two things that change how a segment *plays* rather than what it
+    shows:
+
+      * speed. A segment may carry "speed": 2 to play it at double rate. The
+        clip keeps the same number of source milliseconds but occupies
+        (end - start) / speed of timeline, and in/out are written in that
+        speed-scaled space, which is the only form VideoPad honours: it reads
+        source = position * speed. Verified in out/oracle/v4-probe (a clip with
+        in=1000 at speed 2 starts on source frame 00:00:02.000, not 00:00:01.000).
+      * fades. "fadeIn"/"fadeOut" take milliseconds and become a keyframed Fade
+        (opacity) slot on the video clip: position 0 is fully transparent, 100
+        fully opaque. VideoPad's own Fade In / Fade Out presets ramp across the
+        whole clip, so a partial fade can only be expressed with keyframes -
+        which is what this writes.
+
     New objects need handles. v2 allocates them from the project's hindex counter
     (bumped past the allocations) and clones the records VideoPad requires for
     each one: a type=7 video/audio trackclip pair plus one effectchains line per
@@ -75,6 +90,20 @@
         "effects": [ ... ]        effect chain for this segment's video clip. An
                    empty array means "no effects" and overrides defaultEffects.
 
+    Optional v4 keys, per segment:
+
+        "speed":   number   playback rate, default 1. 2 halves the timeline
+                   length, 0.5 doubles it. The trims keep their meaning: the
+                   clip still shows source start..end, just faster or slower.
+                   The app reads source = position * speed, so in/out are written
+                   divided by speed; a segment whose window would run past the
+                   media at that rate is rejected rather than silently clamped.
+        "fadeIn":  ms       fade up from black at the start of the clip
+        "fadeOut": ms       fade down to black at the end
+                   Both are opacity ramps over the clip's own (post-speed)
+                   length, written as a keyframed Fade slot. They combine with
+                   "effects" - the fade is appended as the last slot.
+
     "defaultEffects" at the top level applies a chain to every segment that does
     not define its own "effects". An effect entry is one of:
 
@@ -104,11 +133,26 @@
           ]
         }
 
+    Example with speed and fades:
+
+        {
+          "template": "..\\examples\\probe.vpj",
+          "output":   "..\\out\\cut5-cadence.vpj",
+          "media": [ { "id": "bars", "path": "..\\out\\testmedia\\bars.mp4" } ],
+          "segments": [
+            { "source": "bars", "start": 0,    "end": 6000, "speed": 2, "fadeIn": 250 },
+            { "source": "bars", "start": 1000, "end": 4000, "fadeOut": 500 },
+            { "source": "bars", "start": 0,    "end": 3000, "speed": 0.5 }
+          ]
+        }
+
 .OUTPUTS
     PSCustomObject: Output, DurationMs, SequenceName, SourceCount, SegmentCount,
     DroppedClips, AllocatedHandles, MediaAdded, EffectCount, Clips. SegmentCount is
     counted after splits are expanded; EffectCount is the number of effect slots
-    written across all clips, and each entry of Clips records the chain it got.
+    written across all clips, and each entry of Clips records the chain it got plus
+    the speed/fade it was given and the in/out/offset actually written (which is
+    what differs from StartMs/EndMs once a segment has a speed other than 1).
 
 .EXAMPLE
     .\New-Project.ps1 -Spec .\examples\cut1.json
@@ -357,6 +401,56 @@ function New-EffectChainLine {
     return ($out -join '&')
 }
 
+# --- speed and fades ----------------------------------------------------------
+# VideoPad reads a clip's in/out as *speed-scaled* positions into the media: at
+# speed 2, in=1000 starts playback on source 00:00:02.000, not 00:00:01.000
+# (proved in out/oracle/v4-probe/probe2, where the exported frame at the clip's
+# first millisecond reads 00:00:02.000). So a segment that shows source
+# start..end at speed s must be written as in=start/s, out=in+(end-start)/s, and
+# the app clamps out to mediaDuration/s - which silently shortens the clip and
+# desynchronises every later offset, hence the hard error instead.
+#
+# Fades are opacity ramps, not a field of their own: they are a keyframed Fade
+# effect (id from tools/effects.json) whose positions are fractions of the clip
+# and whose values are opacity percentages. The presets VideoPad ships ramp
+# across the whole clip, so a partial fade can only be expressed with keyframes.
+function New-FadeSlot {
+    param([int64]$LengthMs, [int64]$FadeInMs, [int64]$FadeOutMs)
+
+    $pts = @()
+    if ($FadeInMs -gt 0) {
+        $pts += , @([double]0.0, [double]0.0)
+        $pts += , @(([double]$FadeInMs / $LengthMs), [double]100.0)
+    }
+    if ($FadeOutMs -gt 0) {
+        if ($pts.Count -eq 0) { $pts += , @([double]0.0, [double]100.0) }
+        $pts += , @(([double]1.0 - ([double]$FadeOutMs / $LengthMs)), [double]100.0)
+        $pts += , @([double]1.0, [double]0.0)
+    }
+    # Hold the plateau to the end of the clip when only the head was ramped.
+    if ($pts[$pts.Count - 1][0] -lt 1.0) { $pts += , @([double]1.0, [double]$pts[$pts.Count - 1][1]) }
+
+    $inv = [Globalization.CultureInfo]::InvariantCulture
+    $parts = New-Object System.Collections.Generic.List[string]
+    # "value" is the slider's own value and only matters while keys=0; it is set
+    # to the ramp's starting point so the effect reads sensibly in the app.
+    $parts.Add('value=' + ([double]$pts[0][1]).ToString('0.000000', $inv))
+    $parts.Add('userdata=0')
+    $parts.Add('keys=' + $pts.Count)
+    for ($i = 0; $i -lt $pts.Count; $i++) {
+        $parts.Add('position' + $i + '=' + ([double]$pts[$i][0]).ToString('0.000000', $inv))
+        $parts.Add('value' + $i + '=' + ([double]$pts[$i][1]).ToString('0.000000', $inv))
+        $parts.Add('userdata' + $i + '=0')
+        $parts.Add('prevcpposition' + $i + '=0.000000')
+        $parts.Add('prevcpvalue' + $i + '=0.000000')
+        $parts.Add('nextcpposition' + $i + '=0.000000')
+        $parts.Add('nextcpvalue' + $i + '=0.000000')
+    }
+
+    $def = Get-EffectDefinition -Name 'fade'
+    return [pscustomobject]@{ Name = $def.Name; Id = [int64]$def.Def.id; Preset = 'Custom'; Data = ($parts -join '&') }
+}
+
 # --- read the template and map its sections ---------------------------------
 # Reassembly is driven by the <key>=<count> lines, so everything this writer does
 # not model (the glued Type=2SubtitlesExport field, the stray CR, export blobs)
@@ -603,8 +697,9 @@ foreach ($seg in @($s.segments)) {
         $bounds = @($start) + @($cuts | Sort-Object -Unique) + @($end)
         for ($b = 0; $b -lt $bounds.Count - 1; $b++) {
             $part = [ordered]@{ source = $seg.source; start = [int64]$bounds[$b]; end = [int64]$bounds[$b + 1] }
-            if ($names -contains 'mute') { $part['mute'] = $seg.mute }
-            if ($names -contains 'effects') { $part['effects'] = $seg.effects }
+            foreach ($inherit in @('mute', 'effects', 'speed', 'fadeIn', 'fadeOut')) {
+                if ($names -contains $inherit) { $part[$inherit] = $seg.$inherit }
+            }
             $segmentList.Add([pscustomobject]$part)
         }
         continue
@@ -632,6 +727,35 @@ foreach ($seg in @($segments)) {
     $mute = $false
     if ($seg.PSObject.Properties.Name -contains 'mute' -and $seg.mute) { $mute = $true }
 
+    # Speed and fades: see the notes above New-FadeSlot for why in/out are
+    # divided by the speed rather than carrying the raw source milliseconds.
+    $speed = 1.0
+    if ($seg.PSObject.Properties.Name -contains 'speed' -and $null -ne $seg.speed) { $speed = [double]$seg.speed }
+    if ($speed -le 0) {
+        throw "Segment for source '$($seg.source)' has speed $speed; it must be greater than 0."
+    }
+    $lengthMs = [int64][math]::Round(($end - $start) / $speed)
+    if ($lengthMs -lt 1) {
+        throw "Segment for source '$($seg.source)' lasts $($end - $start) ms at speed $speed, which is less than one millisecond of timeline."
+    }
+    $inMs = [int64][math]::Round($start / $speed)
+    $outMs = $inMs + $lengthMs
+    $maxOut = [int64][math]::Floor($src.OutMs / $speed)
+    if ($outMs -gt $maxOut) {
+        throw "Segment for source '$($seg.source)' needs out=$outMs ms at speed $speed, but the source only fills $($src.OutMs) ms there, i.e. out<=$maxOut. VideoPad silently clamps such a clip, which shifts every later clip, so the spec is rejected instead."
+    }
+
+    $fadeIn = [int64]0
+    $fadeOut = [int64]0
+    if ($seg.PSObject.Properties.Name -contains 'fadeIn' -and $null -ne $seg.fadeIn) { $fadeIn = [int64]$seg.fadeIn }
+    if ($seg.PSObject.Properties.Name -contains 'fadeOut' -and $null -ne $seg.fadeOut) { $fadeOut = [int64]$seg.fadeOut }
+    if ($fadeIn -lt 0 -or $fadeOut -lt 0) {
+        throw "Segment for source '$($seg.source)' has a negative fade length."
+    }
+    if ($fadeIn + $fadeOut -gt $lengthMs) {
+        throw "Segment for source '$($seg.source)' fades $fadeIn+$fadeOut ms but the clip is only $lengthMs ms long."
+    }
+
     # Effects: an explicit array wins (even an empty one), otherwise defaultEffects.
     $effects = @()
     if ($seg.PSObject.Properties.Name -contains 'effects') {
@@ -642,6 +766,12 @@ foreach ($seg in @($segments)) {
         }
     }
     else { $effects = $defaultEffects }
+
+    # A fade is appended after the segment's own slots, and onto a copy so that
+    # defaultEffects is never mutated by a segment that also fades.
+    if ($fadeIn -gt 0 -or $fadeOut -gt 0) {
+        $effects = @($effects) + @(New-FadeSlot -LengthMs $lengthMs -FadeInMs $fadeIn -FadeOutMs $fadeOut)
+    }
 
     # Reuse an existing pair when this source still has an unused one, so a spec
     # that never repeats a source rewrites the template in place (byte-identical
@@ -671,7 +801,12 @@ foreach ($seg in @($segments)) {
         AudioMediaH  = $src.AudioMediaH
         StartMs      = $start
         EndMs        = $end
-        LengthMs     = ($end - $start)
+        LengthMs     = $lengthMs
+        Speed        = $speed
+        InMs         = $inMs
+        OutMs        = $outMs
+        FadeInMs     = $fadeIn
+        FadeOutMs    = $fadeOut
         OffsetMs     = $cursor
         Mute         = $mute
         Effects      = $effects
@@ -682,7 +817,7 @@ foreach ($seg in @($segments)) {
         IsNew        = $isNew
         IsAddedMedia = ($src.Kind -eq 'added')
     }
-    $cursor += ($end - $start)
+    $cursor += $lengthMs
 }
 
 # --- rewrite the timeline: reused clips are edited in place ------------------
@@ -690,15 +825,15 @@ $keepIdx = @{}
 $newTcLines = @()
 foreach ($p in $plan) {
     if (-not $p.IsNew) {
-        $vl = Set-Field $tcBody[$p.VideoIdx] 'in' ([string]$p.StartMs)
-        $vl = Set-Field $vl 'out' ([string]$p.EndMs)
+        $vl = Set-Field $tcBody[$p.VideoIdx] 'in' ([string]$p.InMs)
+        $vl = Set-Field $vl 'out' ([string]$p.OutMs)
         $vl = Set-Field $vl 'offset' ([string]$p.OffsetMs)
         $tcBody[$p.VideoIdx] = $vl
         $keepIdx[$p.VideoIdx] = $true
 
         if ($null -ne $p.AudioIdx) {
-            $al = Set-Field $tcBody[$p.AudioIdx] 'in' ([string]$p.StartMs)
-            $al = Set-Field $al 'out' ([string]$p.EndMs)
+            $al = Set-Field $tcBody[$p.AudioIdx] 'in' ([string]$p.InMs)
+            $al = Set-Field $al 'out' ([string]$p.OutMs)
             $al = Set-Field $al 'offset' ([string]$p.OffsetMs)
             $tcBody[$p.AudioIdx] = $al
             $keepIdx[$p.AudioIdx] = $true
@@ -710,8 +845,8 @@ foreach ($p in $plan) {
     $vl = Set-Field $vl 'horiginalclip' ([string]$p.VideoMediaH)
     $vl = Set-Field $vl 'hlinked' ([string]$p.AudioH)
     $vl = Set-Field $vl 'name' ([string]$p.EncName)
-    $vl = Set-Field $vl 'in' ([string]$p.StartMs)
-    $vl = Set-Field $vl 'out' ([string]$p.EndMs)
+    $vl = Set-Field $vl 'in' ([string]$p.InMs)
+    $vl = Set-Field $vl 'out' ([string]$p.OutMs)
     $vl = Set-Field $vl 'offset' ([string]$p.OffsetMs)
     $newTcLines += $vl
 
@@ -719,8 +854,8 @@ foreach ($p in $plan) {
     $al = Set-Field $al 'horiginalclip' ([string]$p.AudioMediaH)
     $al = Set-Field $al 'hlinked' ([string]$p.VideoH)
     $al = Set-Field $al 'name' ([string]$p.EncName)
-    $al = Set-Field $al 'in' ([string]$p.StartMs)
-    $al = Set-Field $al 'out' ([string]$p.EndMs)
+    $al = Set-Field $al 'in' ([string]$p.InMs)
+    $al = Set-Field $al 'out' ([string]$p.OutMs)
     $al = Set-Field $al 'offset' ([string]$p.OffsetMs)
     $newTcLines += $al
 }
@@ -737,10 +872,20 @@ if ($ecBody.Count -eq 0) { throw 'Template has no effectchains records to clone.
 $ecPrototype = $ecBody[0]
 
 $muteFor = @{}
+$speedFor = @{}
 $ecKeep = @{}
 foreach ($p in $plan) {
-    if ($null -ne $p.VideoH) { $muteFor[[string]$p.VideoH] = $p.Mute; $ecKeep[[string]$p.VideoH] = $true }
-    if ($null -ne $p.AudioH) { $muteFor[[string]$p.AudioH] = $p.Mute; $ecKeep[[string]$p.AudioH] = $true }
+    $speedText = ([double]$p.Speed).ToString('0.000000', [Globalization.CultureInfo]::InvariantCulture)
+    if ($null -ne $p.VideoH) {
+        $muteFor[[string]$p.VideoH] = $p.Mute
+        $speedFor[[string]$p.VideoH] = $speedText
+        $ecKeep[[string]$p.VideoH] = $true
+    }
+    if ($null -ne $p.AudioH) {
+        $muteFor[[string]$p.AudioH] = $p.Mute
+        $speedFor[[string]$p.AudioH] = $speedText
+        $ecKeep[[string]$p.AudioH] = $true
+    }
 }
 foreach ($h in $mediaByH.Keys) { $ecKeep[[string]$h] = $true }   # bin media keep theirs
 $ecKeep[[string]$seqH] = $true
@@ -752,14 +897,21 @@ foreach ($l in $ecBody) {
     if ($muteFor.ContainsKey($hc)) {
         $l = Set-Field $l 'mute' $(if ($muteFor[$hc]) { '1' } else { '0' })
     }
+    # Speed lives on both records of the pair (the app writes it that way); the
+    # audio half keeps its pitch, which is audiopitchchange=0 in the template.
+    if ($speedFor.ContainsKey($hc)) {
+        $l = Set-Field $l 'speedchangef' $speedFor[$hc]
+    }
     $ecBodyNew += $l
 }
 foreach ($p in $plan) {
     if (-not $p.IsNew) { continue }
+    $speedText = ([double]$p.Speed).ToString('0.000000', [Globalization.CultureInfo]::InvariantCulture)
     foreach ($h in @($p.VideoH, $p.AudioH)) {
         if ($null -eq $h) { continue }
         $l = Set-Field $ecPrototype 'hclip' ([string]$h)
         $l = Set-Field $l 'mute' $(if ($p.Mute) { '1' } else { '0' })
+        $l = Set-Field $l 'speedchangef' $speedText
         $ecBodyNew += $l
     }
 }
@@ -942,6 +1094,11 @@ if ($seqNameEnc) {
                 StartMs     = $_.StartMs
                 EndMs       = $_.EndMs
                 LengthMs    = $_.LengthMs
+                Speed       = $_.Speed
+                InMs        = $_.InMs
+                OutMs       = $_.OutMs
+                FadeInMs    = $_.FadeInMs
+                FadeOutMs   = $_.FadeOutMs
                 OffsetMs    = $_.OffsetMs
                 Mute        = $_.Mute
                 Effects     = @($_.Effects | ForEach-Object { $_.Name })
