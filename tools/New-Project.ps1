@@ -123,6 +123,22 @@
                    naming follows the picture, not the axis: "horizontal" is the
                    left-right swap.
 
+    Optional v6 keys, per segment:
+
+        "audioGainDb": dB       attenuation of this clip's own audio: 0 = as
+                   recorded, -6 = half amplitude, -48 = effectively silence.
+                   Written as an Amplify slot (effect 1001) in the *audio*
+                   record's chain, which is the only place VideoPad honours an
+                   audio effect (the video chain's "fade", effect 28, is picture
+                   opacity and does nothing to sound).
+                   Positive values are rejected, because the exporter normalises
+                   peaks to full scale: slider 125, 150 and 200 all measure 0 dB
+                   against 100 in out/oracle/v5-probe/audio-ladder, so a boost
+                   only clips. VideoPad's slider itself is a dB control wearing
+                   percent clothes - 100 is unity and it falls 0.4816 dB per
+                   unit - so the writer stores 100 + 2.0761 * dB.
+                   "mute": true stays the way to switch a clip off entirely.
+
     "defaultEffects" at the top level applies a chain to every segment that does
     not define its own "effects". An effect entry is one of:
 
@@ -499,6 +515,42 @@ function New-FlipSlot {
     return (Resolve-EffectSpec -Entry $entry -Where $Where)
 }
 
+# --- audio gain ---------------------------------------------------------------
+# VideoPad's Amplify slider is a dB control wearing percent clothes: 100 is
+# unity, and below it the level falls 0.4816 dB per unit - 12.5 units per 6 dB,
+# so value = 100 + dB * 2.0761. Measured on out/oracle/v5-probe/audio-ladder:
+# 25 -> -36.1 dB, 50 -> -24.0, 75 -> -12.1, 100 -> 0, and 125/150/200 all land
+# on 0 because the exporter normalises peaks to full scale, so a positive gain
+# only clips. This is why the spec's key is in dB and does not accept boosts.
+$script:AmplifyUnitsPerDb = 2.0761
+
+function ConvertTo-AmplifyValue {
+    param([double]$Db)
+    return [math]::Round(100 + $Db * $script:AmplifyUnitsPerDb, 3)
+}
+
+function ConvertFrom-AudioGainDb {
+    param([object]$Value, [string]$Where)
+
+    $db = 0.0
+    if (-not [double]::TryParse([string]$Value, [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture, [ref]$db)) {
+        throw "$Where has audioGainDb '$Value', which is not a number of decibels."
+    }
+    if ($db -gt 0) {
+        throw "$Where has audioGainDb $db dB; only attenuation is meaningful. VideoPad's exporter normalises peaks to full scale, so a boost just clips (measured in out/oracle/v5-probe/audio-ladder: slider 125, 150 and 200 are all 0 dB against 100). Use 0 or a negative number."
+    }
+    if ($db -lt -48) {
+        throw "$Where has audioGainDb $db dB; that is below the range this writer accepts (-48 dB is inaudible, so use `"mute`": true)."
+    }
+    return $db
+}
+
+function New-AudioGainSlot {
+    param([double]$Db, [string]$Where)
+    $entry = [pscustomobject]@{ name = 'amplify'; params = [pscustomobject]@{ amplify = (ConvertTo-AmplifyValue -Db $Db) } }
+    return (Resolve-EffectSpec -Entry $entry -Where $Where)
+}
+
 # --- read the template and map its sections ---------------------------------
 # Reassembly is driven by the <key>=<count> lines, so everything this writer does
 # not model (the glued Type=2SubtitlesExport field, the stray CR, export blobs)
@@ -745,7 +797,7 @@ foreach ($seg in @($s.segments)) {
         $bounds = @($start) + @($cuts | Sort-Object -Unique) + @($end)
         for ($b = 0; $b -lt $bounds.Count - 1; $b++) {
             $part = [ordered]@{ source = $seg.source; start = [int64]$bounds[$b]; end = [int64]$bounds[$b + 1] }
-            foreach ($inherit in @('mute', 'effects', 'speed', 'fadeIn', 'fadeOut', 'flip')) {
+            foreach ($inherit in @('mute', 'effects', 'speed', 'fadeIn', 'fadeOut', 'flip', 'audioGainDb')) {
                 if ($names -contains $inherit) { $part[$inherit] = $seg.$inherit }
             }
             $segmentList.Add([pscustomobject]$part)
@@ -825,6 +877,15 @@ foreach ($seg in @($segments)) {
         if ($null -ne $flipSlot) { $effects = @($effects) + @($flipSlot) }
     }
 
+    # Audio lives in a separate, empty chain on the *audio* record of the pair,
+    # so a gain goes there rather than into the video chain.
+    $audioEffects = @()
+    $audioGainDb = $null
+    if ($seg.PSObject.Properties.Name -contains 'audioGainDb' -and $null -ne $seg.audioGainDb) {
+        $audioGainDb = ConvertFrom-AudioGainDb -Value $seg.audioGainDb -Where "Segment $segIdx for source '$($seg.source)'"
+        $audioEffects += New-AudioGainSlot -Db $audioGainDb -Where "Segment $segIdx for source '$($seg.source)'"
+    }
+
     # A fade is appended after the segment's own slots, and onto a copy so that
     # defaultEffects is never mutated by a segment that also fades.
     if ($fadeIn -gt 0 -or $fadeOut -gt 0) {
@@ -851,6 +912,10 @@ foreach ($seg in @($segments)) {
         $isNew = $true
     }
 
+    if (@($audioEffects).Count -gt 0 -and $null -eq $audioH) {
+        throw "Segment $segIdx for source '$($seg.source)' sets audioGainDb, but that source has no audio record to put it on."
+    }
+
     $plan += [pscustomobject]@{
         SourceKey    = $seg.source
         Name         = $src.Name
@@ -869,6 +934,8 @@ foreach ($seg in @($segments)) {
         OffsetMs     = $cursor
         Mute         = $mute
         Effects      = $effects
+        AudioEffects = $audioEffects
+        AudioGainDb  = $audioGainDb
         VideoH       = $videoH
         AudioH       = $audioH
         VideoIdx     = $videoIdx
@@ -984,15 +1051,23 @@ foreach ($id in $addedOrder) {
 }
 
 # --- effectchains: attach the per-clip effect chains ------------------------
-# Only video handles carry effects; audio records keep the template's empty
-# chain, which is what VideoPad writes itself. Every other field of the record
-# (fades, speed, hclip) is preserved by New-EffectChainLine.
+# Each clip is a video/audio pair of records with one chain each. Video handles
+# carry the picture chain; audio handles carry the audio chain, which VideoPad
+# writes empty by default and which is the only place an audio effect is
+# honoured. Every other field of the record (fades, speed, hclip) is preserved
+# by New-EffectChainLine.
 $effectsFor = @{}
 $effectSlots = 0
+$audioSlots = 0
 foreach ($p in $plan) {
-    if ($null -eq $p.VideoH -or @($p.Effects).Count -eq 0) { continue }
-    $effectsFor[[string]$p.VideoH] = $p.Effects
-    $effectSlots += @($p.Effects).Count
+    if ($null -ne $p.VideoH -and @($p.Effects).Count -gt 0) {
+        $effectsFor[[string]$p.VideoH] = $p.Effects
+        $effectSlots += @($p.Effects).Count
+    }
+    if ($null -ne $p.AudioH -and @($p.AudioEffects).Count -gt 0) {
+        $effectsFor[[string]$p.AudioH] = $p.AudioEffects
+        $audioSlots += @($p.AudioEffects).Count
+    }
 }
 if ($effectsFor.Count -gt 0) {
     for ($i = 0; $i -lt $ecBodyNew.Count; $i++) {
@@ -1146,6 +1221,7 @@ if ($seqNameEnc) {
     AllocatedHandles = $script:Allocated
     MediaAdded       = @($addedOrder).Count
     EffectCount      = $effectSlots
+    AudioEffectCount = $audioSlots
     Clips            = @($plan | ForEach-Object {
             [pscustomobject]@{
                 Source      = $_.SourceKey
@@ -1162,6 +1238,8 @@ if ($seqNameEnc) {
                 OffsetMs    = $_.OffsetMs
                 Mute        = $_.Mute
                 Effects     = @($_.Effects | ForEach-Object { $_.Name })
+                AudioEffects = @($_.AudioEffects | ForEach-Object { $_.Name })
+                AudioGainDb  = $_.AudioGainDb
                 VideoHandle = $_.VideoH
                 AudioHandle = $_.AudioH
                 ReusedPair  = (-not $_.IsNew)

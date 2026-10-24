@@ -3,6 +3,18 @@
     "version":  1,
     "verifiedAgainst":  "VideoPad Professional 8.91 (32-bit)",
     "effects":  {
+        "amplify": {
+            "id": 1001,
+            "label": "Amplify",
+            "category": "audio",
+            "summary": "Audio gain as VideoPad stores it: 100 = unity and the level falls 0.4816 dB per unit, so this is a dB control (value = 100 + 2.0761 * dB), not a percentage. Written to the *audio* record's chain. A spec normally sets the segment key \"audioGainDb\" and lets the writer do that arithmetic.",
+            "anonymous": false,
+            "params": [
+                { "key": "amplify", "type": "float", "wrap": true, "default": 100, "min": 0, "max": 400 }
+            ],
+            "defaults": "amplify=value%3D100.000000%26userdata%3D0%26keys%3D0",
+            "presets": {}
+        },
         "mirror": {
             "id": 36,
             "label": "Mirror",

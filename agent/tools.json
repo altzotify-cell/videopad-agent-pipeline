@@ -44,7 +44,7 @@
       },
       "cost": "<1 s",
       "needsApp": false,
-      "returns": "{Output, DurationMs, Segments[]} where each segment reports StartMs/EndMs/LengthMs/Speed/InMs/OutMs/FadeInMs/FadeOutMs/Flip/OffsetMs/Mute/Effects/VideoHandle/AudioHandle/ReusedPair.",
+      "returns": "{Output, DurationMs, Segments[]} where each segment reports StartMs/EndMs/LengthMs/Speed/InMs/OutMs/FadeInMs/FadeOutMs/Flip/AudioGainDb/OffsetMs/Mute/Effects/AudioEffects/VideoHandle/AudioHandle/ReusedPair. AudioEffectCount is reported alongside EffectCount.",
       "okMeans": "The .vpj was written; DurationMs is what the app will show."
     },
     {
