@@ -81,6 +81,6 @@ for ($i = 0; $i -lt $lines.Count; $i++) {
 
 # Report what went in, so the diff against the round-trip is unambiguous.
 foreach ($c in $cases) {
-    $handles = @($offsetToHandles[$c.Offset] | ForEach-Object { $_.H }) -join ','
+    $handles = @($offsetToHandles[[int64]$c.Offset] | ForEach-Object { $_.H }) -join ','
     '{0,6} ms  {1,-22} handles {2}' -f $c.Offset, $c.Note, $handles
 }
