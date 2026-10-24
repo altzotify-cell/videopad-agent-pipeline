@@ -86,6 +86,7 @@ conclusive past the opening (§8).
 | `agent/tools.json` | the same pipeline as seven functions with JSON-Schema arguments, for a tool-calling loop or an MCP server |
 | `agent/system-prompt.md` | paste-ready agent contract: rules, loop, budgets, reporting format |
 | `agent/Invoke-PadTool.ps1` | fills one `tools.json` template (applies defaults, derives computed args, refuses shell metacharacters) and runs it through the runner |
+| `RUN-IT.md` | copy-paste, press-Enter walkthrough for someone who has never used PowerShell, with the exact output of every step |
 | `out/cut1.vpj`, `out/cut2-reuse.vpj`, `out/cut3-addmedia.vpj` | the generated projects (210 000 / 150 000 / 36 000 ms) |
 | `out/cut4-split-effects.vpj` | v3 project: 15 000 ms, 6 clips from 3 segments (one split in three, one split in two) + effect chains |
 | `out/cut5-cadence.vpj` | v4 project: 13 500 ms, 4 clips (2×, 1×, 0.5×, 2× with a chain), three keyframed fades |
