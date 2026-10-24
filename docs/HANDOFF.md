@@ -75,12 +75,17 @@ conclusive past the opening (§8).
 | `tools/Open-Project.ps1` | launches VideoPad on a `.vpj`, clears stale modals, auto-answers "Damaged File" via `WM_COMMAND/IDOK`; ~4.5 s |
 | `tools/Watch-Autosave.ps1` | load → wait for autosave refresh → report what the parser actually absorbed |
 | `tools/Compare-Vpj.ps1` | field-level diff of two `.vpj` files, records matched by handle — the check behind every "round-tripped unchanged" claim |
+| `tools/Invoke-AgentStep.ps1` | runs one step in a child PowerShell and prints one JSON verdict `{ok, exitCode, timedOut, seconds, stdout, stderr}` — the agent contract |
 | `tools/Export-Project.ps1` | **.vpj → .mp4**: ribbon clicks, `Create`, wait, adopt file, verify duration |
 | `tools/PadUi.ps1` | UI primitives: DPI-aware capture/click, top-level window enumeration, control search, `BM_CLICK`, window resizing |
 | `tools/NativeInput.cs` | P/Invoke layer (`mouse_event`, `keybd_event`, `SendMessage`, `EnumWindows`, …) |
 | `tools/Probe-ExportDialog.ps1` | diagnostic: dumps the control map of whatever dialog is under a point |
 | `tools/Get-WindowCapture.ps1`, `tools/Send-PadClick.ps1` | earlier standalone capture / click tools, still useful for calibration |
 | `docs/vpj-format-findings.md` | format reference: sections, handles, checksum, timeline semantics, export |
+| `docs/AGENT-RUNBOOK.md` | operating manual for driving the pipeline from an agent: loop, costs, failure taxonomy, invariants |
+| `agent/tools.json` | the same pipeline as seven functions with JSON-Schema arguments, for a tool-calling loop or an MCP server |
+| `agent/system-prompt.md` | paste-ready agent contract: rules, loop, budgets, reporting format |
+| `agent/Invoke-PadTool.ps1` | fills one `tools.json` template (applies defaults, derives computed args, refuses shell metacharacters) and runs it through the runner |
 | `out/cut1.vpj`, `out/cut2-reuse.vpj`, `out/cut3-addmedia.vpj` | the generated projects (210 000 / 150 000 / 36 000 ms) |
 | `out/cut4-split-effects.vpj` | v3 project: 15 000 ms, 6 clips from 3 segments (one split in three, one split in two) + effect chains |
 | `out/cut5-cadence.vpj` | v4 project: 13 500 ms, 4 clips (2×, 1×, 0.5×, 2× with a chain), three keyframed fades |

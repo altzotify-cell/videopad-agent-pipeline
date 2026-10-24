@@ -63,6 +63,27 @@ calibrated for a 1536×817 main window, and the window is **resized to that size
 before clicking — the ribbon scales with DPI, not with window width, so scaling
 coordinates alone misses it.
 
+## Driving it from an agent
+
+The repo is built to be operated by an agent rather than by hand, and that part is
+documented separately:
+
+- [docs/AGENT-RUNBOOK.md](docs/AGENT-RUNBOOK.md) — the loop, measured costs, a
+  failure taxonomy, and the invariants that must not be automated away.
+- [agent/tools.json](agent/tools.json) — seven functions with JSON-Schema
+  arguments, so you can hand a model a tool list instead of a codebase.
+- [agent/system-prompt.md](agent/system-prompt.md) — a paste-ready contract:
+  rules, loop, budgets, reporting format.
+- [tools/Invoke-AgentStep.ps1](tools/Invoke-AgentStep.ps1) — runs one step in a
+  child PowerShell and prints `{ok, exitCode, seconds, stdout, stderr}`.
+- [agent/Invoke-PadTool.ps1](agent/Invoke-PadTool.ps1) — fills a manifest
+  template and runs it, validating every argument first.
+
+```powershell
+.\tools\Invoke-AgentStep.ps1 -Step gate -Command '.\tools\Test-Examples.ps1'
+.\agent\Invoke-PadTool.ps1 -Name videopad_build -Arguments @{ spec = 'examples\cut5-cadence.json' }
+```
+
 ## Not in this repo
 
 The rendered exports (`out/agent-cut-v2.mp4`, 170 MB each) exceed GitHub's
