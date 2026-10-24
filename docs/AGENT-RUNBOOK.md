@@ -152,6 +152,8 @@ something else.
 | project opens as "Untitled" | VideoPad is single-instance and silently drops the file argument | close every instance, reload |
 | `Loaded=false` with `ElapsedSeconds` ≈ the timeout | a modal is waiting that nobody recognises | check `Modals` in the result before retrying |
 | `Export dialog did not appear` | no sequence open, or the ribbon is not on Home | load a project first; the ribbon must be on Home |
+| `Export dialog did not appear`, but a sequence *is* open | another window is covering the editor, so the synthetic clicks land on it | keep VideoPad on top while the clicks run (`SetWindowPos … HWND_TOPMOST`), or clear the desk |
+| a detached driver wrote no verdict and the mp4 appeared in `Videos` | the caller's timeout killed the process tree, taking the move-and-verify step with it | poll from a separate short call; never sleep past the harness cap in the command that launched the driver |
 | export produced nothing, timeout hit | still encoding, or the encode failed on a missing media file | check the media paths resolve (the `.vpj` stores paths, not media) |
 | writer: `cannot open output ... file locked` | the target `.vpj` is open in the editor or held by a `.vbk` backup | close the lock, or write to a new path |
 | writer: `out ... beyond the media at speed` | the spec asked for more source than exists | shorten or split the segment; the app would have silently clamped and desynced the rest |

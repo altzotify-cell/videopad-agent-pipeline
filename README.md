@@ -22,6 +22,7 @@ the obvious fields round-trip but do nothing; see
 
 | start here | what it is |
 |---|---|
+| **[START-HERE.md](START-HERE.md)** | **plain English** — what this does, how to run it, what comes out, what it can't do yet |
 | **[docs/HANDOFF.md](docs/HANDOFF.md)** | **read this first** — verdict, environment, commands, UI-automation rules, open work, new-session bootstrap prompt |
 | [docs/vpj-format-findings.md](docs/vpj-format-findings.md) | `.vpj` format reference: sections, handles, effect-chain slots, checksum, timeline semantics, export details |
 | [tools/effects.json](tools/effects.json) | effect registry: ids, parameter schemas, preset blobs — the vocabulary `effects`/`defaultEffects` use |
