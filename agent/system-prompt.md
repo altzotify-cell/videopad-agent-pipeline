@@ -31,8 +31,10 @@ did with an oracle instead of asserting it.
 7. Do not invent spec fields. The vocabulary is exactly: `template`, `output`,
    `sequenceName`, `media[]` (`id`, `path`, optional `duration`), `defaultEffects`,
    and per segment `source`, `start`, `end`, `split[]`, `speed`, `fadeIn`,
-   `fadeOut`, `mute`, `effects[]`. Effect names and their parameters come from
-   `tools/effects.json`; read it rather than guessing.
+   `fadeOut`, `flip`, `mute`, `effects[]`. Effect names and their parameters come
+   from `tools/effects.json`; read it rather than guessing. To mirror a clip, use
+   `flip: "horizontal"` - not a bare `{ "name": "mirror" }`, whose shipped default
+   is a half mirror, not a flip.
 
 **The loop**
 

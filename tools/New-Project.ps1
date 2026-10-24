@@ -104,6 +104,25 @@
                    length, written as a keyframed Fade slot. They combine with
                    "effects" - the fade is appended as the last slot.
 
+    Optional v5 keys, per segment:
+
+        "flip":  "horizontal"   mirror the picture left<->right, i.e. lateral
+                   inversion. This is what a caller asking to "flip" or "mirror"
+                   a clip means, and it is deliberately *not* the same as
+                   { "name": "mirror" } with no params: that effect's shipped
+                   default mirrordirection=0 keeps the left half of the frame
+                   and reflects it onto the right (a half mirror), while
+                   mirrordirection=1 is a true flip.
+        "flip":  "vertical"      turn the picture upside down (top<->bottom)
+        "flip":  "both"          both axes at once (180 deg, point symmetry)
+        "flip":  "none"          explicit no-flip, to override a copy-paste
+
+                   Written as a Flip slot (effect 69, horzflip/vertflip) placed
+                   after the segment's own effects and before its fade, so it
+                   also applies to every part of a "split" segment. The axis
+                   naming follows the picture, not the axis: "horizontal" is the
+                   left-right swap.
+
     "defaultEffects" at the top level applies a chain to every segment that does
     not define its own "effects". An effect entry is one of:
 
@@ -451,6 +470,35 @@ function New-FadeSlot {
     return [pscustomobject]@{ Name = $def.Name; Id = [int64]$def.Def.id; Preset = 'Custom'; Data = ($parts -join '&') }
 }
 
+# --- flip (lateral inversion) -------------------------------------------------
+# "horizontal" mirrors the picture left-to-right. It is a first-class segment
+# key rather than an effect entry because the catalogued mirror effect defaults
+# to mirrordirection=0 (a half mirror), and a caller who writes "mirror" should
+# not have to know that to get a flip. Going through the registry keeps the blob
+# in the shape the app ships, so only the two bools differ from the default.
+function New-FlipSlot {
+    param([object]$Value, [string]$Where)
+
+    $text = ([string]$Value).Trim().ToLowerInvariant()
+    $map = @{
+        'horizontal' = @($true, $false)
+        'vertical'   = @($false, $true)
+        'both'       = @($true, $true)
+        'none'       = $null
+    }
+    if (-not $map.ContainsKey($text)) {
+        throw "$Where has flip '$Value'; expected horizontal (left<->right), vertical (top<->bottom), both, or none."
+    }
+    $axes = $map[$text]
+    if ($null -eq $axes) { return $null }
+
+    $entry = [pscustomobject]@{
+        name   = 'flip'
+        params = [pscustomobject]@{ horzflip = [bool]$axes[0]; vertflip = [bool]$axes[1] }
+    }
+    return (Resolve-EffectSpec -Entry $entry -Where $Where)
+}
+
 # --- read the template and map its sections ---------------------------------
 # Reassembly is driven by the <key>=<count> lines, so everything this writer does
 # not model (the glued Type=2SubtitlesExport field, the stray CR, export blobs)
@@ -697,7 +745,7 @@ foreach ($seg in @($s.segments)) {
         $bounds = @($start) + @($cuts | Sort-Object -Unique) + @($end)
         for ($b = 0; $b -lt $bounds.Count - 1; $b++) {
             $part = [ordered]@{ source = $seg.source; start = [int64]$bounds[$b]; end = [int64]$bounds[$b + 1] }
-            foreach ($inherit in @('mute', 'effects', 'speed', 'fadeIn', 'fadeOut')) {
+            foreach ($inherit in @('mute', 'effects', 'speed', 'fadeIn', 'fadeOut', 'flip')) {
                 if ($names -contains $inherit) { $part[$inherit] = $seg.$inherit }
             }
             $segmentList.Add([pscustomobject]$part)
@@ -767,6 +815,16 @@ foreach ($seg in @($segments)) {
     }
     else { $effects = $defaultEffects }
 
+    # flip is appended after the segment's own slots and before the fade, which
+    # stays last. Reported even when it is "none" so the result object says what
+    # the spec asked for rather than what the chain happens to contain.
+    $flipText = ''
+    if ($seg.PSObject.Properties.Name -contains 'flip' -and $null -ne $seg.flip) {
+        $flipText = ([string]$seg.flip).Trim().ToLowerInvariant()
+        $flipSlot = New-FlipSlot -Value $seg.flip -Where "Segment $segIdx for source '$($seg.source)'"
+        if ($null -ne $flipSlot) { $effects = @($effects) + @($flipSlot) }
+    }
+
     # A fade is appended after the segment's own slots, and onto a copy so that
     # defaultEffects is never mutated by a segment that also fades.
     if ($fadeIn -gt 0 -or $fadeOut -gt 0) {
@@ -807,6 +865,7 @@ foreach ($seg in @($segments)) {
         OutMs        = $outMs
         FadeInMs     = $fadeIn
         FadeOutMs    = $fadeOut
+        Flip         = $flipText
         OffsetMs     = $cursor
         Mute         = $mute
         Effects      = $effects
@@ -1099,6 +1158,7 @@ if ($seqNameEnc) {
                 OutMs       = $_.OutMs
                 FadeInMs    = $_.FadeInMs
                 FadeOutMs   = $_.FadeOutMs
+                Flip        = $_.Flip
                 OffsetMs    = $_.OffsetMs
                 Mute        = $_.Mute
                 Effects     = @($_.Effects | ForEach-Object { $_.Name })

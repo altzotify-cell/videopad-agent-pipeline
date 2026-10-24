@@ -20,7 +20,7 @@
             "id": 69,
             "label": "Flip",
             "category": "geometry",
-            "summary": "Independent horizontal and vertical flips; same family as mirror but the two axes toggle separately.",
+            "summary": "Independent horizontal and vertical flips; same family as mirror but the two axes toggle separately. horzflip=1 is a left-right swap (lateral inversion), which is what a spec's segment-level \"flip\": \"horizontal\" writes.",
             "anonymous": false,
             "params": [
                 { "key": "horzflip", "type": "bool", "wrap": true, "default": 0 },

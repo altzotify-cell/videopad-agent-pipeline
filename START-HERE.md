@@ -38,6 +38,7 @@ Optional per cut, when you want more than a straight cut:
 | field | meaning | example |
 |---|---|---|
 | `speed` | play faster or slower | `2` = double speed, `0.5` = half |
+| `flip` | mirror the picture: `horizontal` = left↔right, `vertical` = upside down, `both`, `none` | `"horizontal"` |
 | `fadeIn` / `fadeOut` | fade the picture (ms) | `250` |
 | `effects` | video effect, names from `tools/effects.json` | `[{ "name": "mirror" }]` |
 | `mute` | silence this cut | `true` |
