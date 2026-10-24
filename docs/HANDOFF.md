@@ -645,6 +645,50 @@ loudness meter.
 this writer accepts"*; `"loud"` → *"not a number of decibels"*; `0` and `-6`
 build normally.
 
+### v7 evidence (audio fades)
+
+Spec `examples/cut8-audiofade.json` → `out/cut8-audiofade.vpj`: 12 000 ms, 4
+clips of 3 s — no keys, `audioFadeIn 800`, `audioFadeOut 800`, then
+`audioGainDb -6` with 500/500 fades.
+
+| timeline (ms) | written as | why |
+|---|---|---|
+| 0–3 000 | audio chain `size=0` | control |
+| 3 000–6 000 | `keys=3`: (0, 0) (0.266667, 100) (1, 100) | 800 ms of a 3 s clip = 0.266667 |
+| 6 000–9 000 | `keys=3`: (0, 100) (0.733333, 100) (1, 0) | 1 − 800/3000 |
+| 9 000–12 000 | `keys=4`: (0, 0) (0.166667, 87.543) (0.833333, 87.543) (1, 0) | plateau carries −6 dB; one slot, not a gain plus a fade |
+
+**A bare number silences the clip.** The first attempt wrote
+`amplify=0.000000&userdata=0&keys=3&…`; every faded clip then exported at
+−91 dB at *every* probe, plateau included. A wrapped parameter's value is itself
+an escaped keyframe group — the static slot stores
+`amplify=value%3D100.000000%26userdata%3D0%26keys%3D0`, and the keyframed one must
+be `amplify=` + the escaped group. Caught by measuring a plateau that should have
+been loud, not by reading the file.
+
+**Oracle — export** `out/cut8-audiofade.mp4`: 12.028 s vs 12 000 (Δ 28 ms),
+1 231 855 bytes, SHA256 `B415FEF2…CD70E1`, `out/oracle/cut8-verify.ps1`
+(`cut8-verify.txt`), 0.15 s `volumedetect` windows, dB against the control clip:
+
+| clip | probes (s → dB) | reading |
+|---|---|---|
+| no keys (control) | 1.50 → −3.1 | reference |
+| `audioFadeIn 800` | 3.10 → −14.3, 3.40 → −5.1, 3.70 → −0.9, 3.90 → 0, 4.50 → −0.5 | rises over the ramp and holds at control level |
+| `audioFadeOut 800` | 7.50 → 0, 8.30 → −2.0, 8.60 → −7.5, 8.85 → −17.9 | falls over the last 800 ms |
+| `-6 dB` + 500/500 | 9.10 → −16.3, 9.40 → −7.2, 9.60 → −6.1, 10.50 → −6.3, 11.60 → −9.6, 11.85 → −19.7 | rises, plateaus at the requested −6 dB, falls |
+
+**Interpolation is linear in amplitude, not in the slider.** Halfway through an
+800 ms ramp the slider sits at ~44 and the level measures −5.1 dB, where a ramp
+linear in slider units would give −27 and a dB-linear ramp about −24. Each
+keyframe value is mapped through the same 0.4816 dB/unit curve as a static value,
+and the ramp interpolates the resulting amplitudes (mid-ramp prediction −7.2 dB
+before window smear, measured −5.1). That is the usual constant-gain fade; a fade
+that is linear in dB, which many editors offer, would need many keyframes.
+
+**Guard rails, exercised:** `audioFadeIn: -1` → *"has a negative audio fade
+length"*; 2000+2000 ms on a 3000 ms clip → *"fades audio 2000+2000 ms but the
+clip is only 3000 ms long"*.
+
 ## 10. What is NOT supported yet (and the shape of the fix)
 
 **Writer — still needs records this writer does not model:**

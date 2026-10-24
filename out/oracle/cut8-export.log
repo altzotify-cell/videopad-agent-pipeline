@@ -1,0 +1,16 @@
+[02:20:14] Opening project C:\Users\user\Downloads\videopad\out\cut8-audiofade.vpj
+[02:20:24] Project loaded: VideoPad Professional by NCH Software - cut8-audiofade.vpj - Licensed to user
+[02:20:26] Editor window 1507916 at 192,101 1536x817
+[02:20:26] Watching C:\Users\user\Videos (2 existing .mp4)
+[02:20:26] Ribbon: Home tab
+[02:20:27] Ribbon: Export Video
+[02:20:28] Ribbon: Video File
+[02:20:30] Waiting for the export dialog (Create button)
+[02:20:30] Export dialog is up; activating Create (5048368)
+[02:20:37] Encoding to Audio Fade Test.mp4
+[02:20:41]   1,231,855 bytes, duration 12.028s
+[02:20:45]   1,231,855 bytes, duration 12.028s, stable 1/2
+[02:20:49]   1,231,855 bytes, duration 12.028s, stable 2/2
+[02:20:49] Dismissing completion dialog (Close)
+[02:20:50] Moved to C:\Users\user\Downloads\videopad\out\cut8-audiofade.mp4 (1,231,855 bytes)
+[02:20:50] Exported; duration within one frame of the expected 12000 ms.

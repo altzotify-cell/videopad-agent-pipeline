@@ -40,6 +40,7 @@ Optional per cut, when you want more than a straight cut:
 | `speed` | play faster or slower | `2` = double speed, `0.5` = half |
 | `flip` | mirror the picture: `horizontal` = left↔right, `vertical` = upside down, `both`, `none` | `"horizontal"` |
 | `audioGainDb` | change one clip's volume, in dB (attenuation only) | `-6` = half amplitude; boosts are refused because the exporter already normalises to full scale |
+| `audioFadeIn` / `audioFadeOut` | fade this clip's own sound (ms) | `400` — separate from `fadeIn`/`fadeOut`, which fade the picture |
 | `fadeIn` / `fadeOut` | fade the picture (ms) | `250` |
 | `effects` | video effect, names from `tools/effects.json` | `[{ "name": "mirror" }]` |
 | `mute` | silence this cut | `true` |

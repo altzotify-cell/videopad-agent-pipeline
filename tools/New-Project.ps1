@@ -139,6 +139,17 @@
                    unit - so the writer stores 100 + 2.0761 * dB.
                    "mute": true stays the way to switch a clip off entirely.
 
+    Optional v7 keys, per segment:
+
+        "audioFadeIn":  ms      ramp this clip's own audio up from silence
+        "audioFadeOut": ms      ramp it down to silence
+                   Over the clip's own (post-speed) length, like fadeIn/fadeOut
+                   but on the audio chain: written as one keyframed Amplify slot
+                   whose plateau is any audioGainDb, so a faded clip that is also
+                   quieter still has exactly one audio slot. A 500 ms audio fade
+                   on a 3 s clip starts at 0 on the slider and reaches the
+                   plateau at position 0.166667.
+
     "defaultEffects" at the top level applies a chain to every segment that does
     not define its own "effects". An effect entry is one of:
 
@@ -551,6 +562,50 @@ function New-AudioGainSlot {
     return (Resolve-EffectSpec -Entry $entry -Where $Where)
 }
 
+# A keyframed Amplify slot: the same keyframe group shape as the video fade
+# (New-FadeSlot), but on the audio chain, ramping the slider between 0 (silence)
+# and the clip's own level. The plateau carries any audioGainDb, so a faded clip
+# still has exactly one audio slot rather than a static gain plus a fade.
+function New-AudioFadeSlot {
+    param([int64]$LengthMs, [int64]$FadeInMs, [int64]$FadeOutMs, [double]$Db, [string]$Where)
+
+    $plateau = ConvertTo-AmplifyValue -Db $Db
+    $pts = @()
+    if ($FadeInMs -gt 0) {
+        $pts += , @([double]0.0, [double]0.0)
+        $pts += , @(([double]$FadeInMs / $LengthMs), [double]$plateau)
+    }
+    if ($FadeOutMs -gt 0) {
+        if ($pts.Count -eq 0) { $pts += , @([double]0.0, [double]$plateau) }
+        $pts += , @(([double]1.0 - ([double]$FadeOutMs / $LengthMs)), [double]$plateau)
+        $pts += , @([double]1.0, [double]0.0)
+    }
+    if ($pts[$pts.Count - 1][0] -lt 1.0) { $pts += , @([double]1.0, [double]$pts[$pts.Count - 1][1]) }
+
+    $inv = [Globalization.CultureInfo]::InvariantCulture
+    # A wrapped parameter's value is itself an escaped keyframe group, which is
+    # how the registry blob and the static slot both store it
+    # (amplify=value%3D100.000000%26userdata%3D0%26keys%3D0). Writing a bare
+    # number here is parsed as a broken group and silences the clip entirely.
+    $group = New-Object System.Collections.Generic.List[string]
+    $group.Add('value=' + ([double]$pts[0][1]).ToString('0.000000', $inv))
+    $group.Add('userdata=0')
+    $group.Add('keys=' + $pts.Count)
+    for ($i = 0; $i -lt $pts.Count; $i++) {
+        $group.Add('position' + $i + '=' + ([double]$pts[$i][0]).ToString('0.000000', $inv))
+        $group.Add('value' + $i + '=' + ([double]$pts[$i][1]).ToString('0.000000', $inv))
+        $group.Add('userdata' + $i + '=0')
+        $group.Add('prevcpposition' + $i + '=0.000000')
+        $group.Add('prevcpvalue' + $i + '=0.000000')
+        $group.Add('nextcpposition' + $i + '=0.000000')
+        $group.Add('nextcpvalue' + $i + '=0.000000')
+    }
+
+    $def = Get-EffectDefinition -Name 'amplify'
+    $data = 'amplify=' + [uri]::EscapeDataString($group -join '&')
+    return [pscustomobject]@{ Name = $def.Name; Id = [int64]$def.Def.id; Preset = 'Custom'; Data = $data }
+}
+
 # --- read the template and map its sections ---------------------------------
 # Reassembly is driven by the <key>=<count> lines, so everything this writer does
 # not model (the glued Type=2SubtitlesExport field, the stray CR, export blobs)
@@ -797,7 +852,7 @@ foreach ($seg in @($s.segments)) {
         $bounds = @($start) + @($cuts | Sort-Object -Unique) + @($end)
         for ($b = 0; $b -lt $bounds.Count - 1; $b++) {
             $part = [ordered]@{ source = $seg.source; start = [int64]$bounds[$b]; end = [int64]$bounds[$b + 1] }
-            foreach ($inherit in @('mute', 'effects', 'speed', 'fadeIn', 'fadeOut', 'flip', 'audioGainDb')) {
+            foreach ($inherit in @('mute', 'effects', 'speed', 'fadeIn', 'fadeOut', 'flip', 'audioGainDb', 'audioFadeIn', 'audioFadeOut')) {
                 if ($names -contains $inherit) { $part[$inherit] = $seg.$inherit }
             }
             $segmentList.Add([pscustomobject]$part)
@@ -878,12 +933,29 @@ foreach ($seg in @($segments)) {
     }
 
     # Audio lives in a separate, empty chain on the *audio* record of the pair,
-    # so a gain goes there rather than into the video chain.
+    # so a gain or a fade goes there rather than into the video chain.
     $audioEffects = @()
     $audioGainDb = $null
+    $audioFadeIn = [int64]0
+    $audioFadeOut = [int64]0
+    $audioWhere = "Segment $segIdx for source '$($seg.source)'"
     if ($seg.PSObject.Properties.Name -contains 'audioGainDb' -and $null -ne $seg.audioGainDb) {
-        $audioGainDb = ConvertFrom-AudioGainDb -Value $seg.audioGainDb -Where "Segment $segIdx for source '$($seg.source)'"
-        $audioEffects += New-AudioGainSlot -Db $audioGainDb -Where "Segment $segIdx for source '$($seg.source)'"
+        $audioGainDb = ConvertFrom-AudioGainDb -Value $seg.audioGainDb -Where $audioWhere
+    }
+    if ($seg.PSObject.Properties.Name -contains 'audioFadeIn' -and $null -ne $seg.audioFadeIn) { $audioFadeIn = [int64]$seg.audioFadeIn }
+    if ($seg.PSObject.Properties.Name -contains 'audioFadeOut' -and $null -ne $seg.audioFadeOut) { $audioFadeOut = [int64]$seg.audioFadeOut }
+    if ($audioFadeIn -lt 0 -or $audioFadeOut -lt 0) {
+        throw "$audioWhere has a negative audio fade length."
+    }
+    if ($audioFadeIn + $audioFadeOut -gt $lengthMs) {
+        throw "$audioWhere fades audio $audioFadeIn+$audioFadeOut ms but the clip is only $lengthMs ms long."
+    }
+    if ($audioFadeIn -gt 0 -or $audioFadeOut -gt 0) {
+        $plateauDb = if ($null -ne $audioGainDb) { $audioGainDb } else { 0.0 }
+        $audioEffects += New-AudioFadeSlot -LengthMs $lengthMs -FadeInMs $audioFadeIn -FadeOutMs $audioFadeOut -Db $plateauDb -Where $audioWhere
+    }
+    elseif ($null -ne $audioGainDb) {
+        $audioEffects += New-AudioGainSlot -Db $audioGainDb -Where $audioWhere
     }
 
     # A fade is appended after the segment's own slots, and onto a copy so that
@@ -936,6 +1008,8 @@ foreach ($seg in @($segments)) {
         Effects      = $effects
         AudioEffects = $audioEffects
         AudioGainDb  = $audioGainDb
+        AudioFadeInMs  = $audioFadeIn
+        AudioFadeOutMs = $audioFadeOut
         VideoH       = $videoH
         AudioH       = $audioH
         VideoIdx     = $videoIdx
@@ -1240,6 +1314,8 @@ if ($seqNameEnc) {
                 Effects     = @($_.Effects | ForEach-Object { $_.Name })
                 AudioEffects = @($_.AudioEffects | ForEach-Object { $_.Name })
                 AudioGainDb  = $_.AudioGainDb
+                AudioFadeInMs  = $_.AudioFadeInMs
+                AudioFadeOutMs = $_.AudioFadeOutMs
                 VideoHandle = $_.VideoH
                 AudioHandle = $_.AudioH
                 ReusedPair  = (-not $_.IsNew)
